@@ -20,17 +20,20 @@ class _RallyOnboardingRunPageState extends State<RallyOnboardingRunPage> {
     _OnboardingBoard(
       backdrop: RallyBackdrop.surfaceSplash,
       title: 'Find your court circle',
-      detail: 'Keep friendly rallies, match notes, and social plans in one polished place.',
+      detail:
+          'Keep friendly rallies, match notes, and social plans in one polished place.',
     ),
     _OnboardingBoard(
       backdrop: RallyBackdrop.forehandChoice,
       title: 'Step in with context',
-      detail: 'Arrive with the right profile, greeting, and matchday signal already set.',
+      detail:
+          'Arrive with the right profile, greeting, and matchday signal already set.',
     ),
     _OnboardingBoard(
       backdrop: RallyBackdrop.profileForm,
       title: 'Make your court card yours',
-      detail: 'Choose a name, photo, and signature that fit the way you show up.',
+      detail:
+          'Choose a name, photo, and signature that fit the way you show up.',
     ),
   ];
 
@@ -96,8 +99,9 @@ class _RallyOnboardingRunPageState extends State<RallyOnboardingRunPage> {
                                   .textTheme
                                   .textStyle
                                   .copyWith(
-                                    color: CupertinoColors.white
-                                        .withValues(alpha: 0.78),
+                                    color: CupertinoColors.white.withValues(
+                                      alpha: 0.78,
+                                    ),
                                     fontSize: 13,
                                     height: 1.42,
                                     fontWeight: FontWeight.w600,
@@ -164,9 +168,7 @@ class _RallyOnboardingRunPageState extends State<RallyOnboardingRunPage> {
       return;
     }
     Navigator.of(context).pushReplacement(
-      CupertinoPageRoute<void>(
-        builder: (_) => const RallyWelcomeChoicePage(),
-      ),
+      CupertinoPageRoute<void>(builder: (_) => const RallyWelcomeChoicePage()),
     );
   }
 }

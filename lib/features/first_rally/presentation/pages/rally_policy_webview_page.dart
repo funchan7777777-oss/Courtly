@@ -79,12 +79,12 @@ class _RallyPolicyWebViewPageState extends State<RallyPolicyWebViewPage> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
-                      color: CupertinoColors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
-                      decoration: TextDecoration.none,
-                    ),
+                  color: CupertinoColors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                  decoration: TextDecoration.none,
+                ),
               ),
             ),
             if (_progress < 100)
@@ -100,7 +100,9 @@ class _RallyPolicyWebViewPageState extends State<RallyPolicyWebViewPage> {
                       color: CupertinoColors.white.withValues(alpha: 0.18),
                       child: FractionallySizedBox(
                         alignment: Alignment.centerLeft,
-                        widthFactor: (_progress / 100).clamp(0.04, 1),
+                        widthFactor: (_progress / 100)
+                            .clamp(0.04, 1)
+                            .toDouble(),
                         child: const ColoredBox(color: Color(0xFFFFB733)),
                       ),
                     ),

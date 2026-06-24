@@ -15,12 +15,12 @@ class RallyAgreementPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseStyle = CupertinoTheme.of(context).textTheme.textStyle.copyWith(
-          color: CupertinoColors.white.withValues(alpha: 0.78),
-          fontSize: 11,
-          height: 1.35,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0,
-        );
+      color: CupertinoColors.white.withValues(alpha: 0.78),
+      fontSize: 11,
+      height: 1.35,
+      fontWeight: FontWeight.w500,
+      letterSpacing: 0,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -94,10 +94,7 @@ class RallyAgreementPanel extends StatelessWidget {
 }
 
 class _PolicyLink extends StatelessWidget {
-  const _PolicyLink({
-    required this.label,
-    required this.uri,
-  });
+  const _PolicyLink({required this.label, required this.uri});
 
   final String label;
   final Uri uri;
@@ -110,24 +107,22 @@ class _PolicyLink extends StatelessWidget {
       onPressed: () {
         Navigator.of(context).push(
           CupertinoPageRoute<void>(
-            builder: (_) => RallyPolicyWebViewPage(
-              title: label,
-              policyUri: uri,
-            ),
+            builder: (_) =>
+                RallyPolicyWebViewPage(title: label, policyUri: uri),
           ),
         );
       },
       child: Text(
         label,
         style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
-              color: const Color(0xFFFFD46E),
-              fontSize: 11,
-              height: 1.35,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
-              decoration: TextDecoration.underline,
-              decorationColor: const Color(0xFFFFD46E),
-            ),
+          color: const Color(0xFFFFD46E),
+          fontSize: 11,
+          height: 1.35,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0,
+          decoration: TextDecoration.underline,
+          decorationColor: const Color(0xFFFFD46E),
+        ),
       ),
     );
   }

@@ -39,12 +39,12 @@ class _FirstRallyGateState extends State<FirstRallyGate> {
     final Widget nextPage = activeSession != null
         ? const CourtlyTabs()
         : onboardingSettled
-            ? const RallyWelcomeChoicePage()
-            : const RallyOnboardingRunPage();
+        ? const RallyWelcomeChoicePage()
+        : const RallyOnboardingRunPage();
 
-    Navigator.of(context).pushReplacement(
-      CupertinoPageRoute<void>(builder: (_) => nextPage),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(CupertinoPageRoute<void>(builder: (_) => nextPage));
   }
 
   @override

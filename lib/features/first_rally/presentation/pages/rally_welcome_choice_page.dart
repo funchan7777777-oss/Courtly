@@ -47,7 +47,9 @@ class _RallyWelcomeChoicePageState extends State<RallyWelcomeChoicePage> {
                   ),
                   if (_isAppleSigning) ...[
                     const SizedBox(height: 18),
-                    const CupertinoActivityIndicator(color: CupertinoColors.white),
+                    const CupertinoActivityIndicator(
+                      color: CupertinoColors.white,
+                    ),
                   ],
                 ],
               ),
@@ -75,11 +77,9 @@ class _RallyWelcomeChoicePageState extends State<RallyWelcomeChoicePage> {
       return;
     }
 
-    Navigator.of(context).push(
-      CupertinoPageRoute<void>(
-        builder: (_) => const RallySigninPage(),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(CupertinoPageRoute<void>(builder: (_) => const RallySigninPage()));
   }
 
   Future<void> _beginAppleEntry() async {
@@ -137,9 +137,7 @@ class _RallyWelcomeChoicePageState extends State<RallyWelcomeChoicePage> {
         ),
       );
     } on SignInWithAppleAuthorizationException catch (error) {
-      if (!mounted ||
-          error.code == AuthorizationErrorCode.canceled ||
-          error.code == AuthorizationErrorCode.unknown) {
+      if (!mounted || error.code == AuthorizationErrorCode.canceled) {
         return;
       }
       await RallyNoticeDialog.show(

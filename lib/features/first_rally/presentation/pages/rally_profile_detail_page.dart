@@ -116,7 +116,7 @@ class _RallyProfileDetailPageState extends State<RallyProfileDetailPage> {
             CupertinoActionSheetAction(
               onPressed: () {
                 Navigator.of(context).pop();
-                _pickAvatar(ImageSource.photoLibrary);
+                _pickAvatar(ImageSource.gallery);
               },
               child: const Text('Choose from Library'),
             ),
@@ -229,10 +229,7 @@ class _CourtCardAvatar extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             if (path != null)
-              Image.file(
-                File(path),
-                fit: BoxFit.cover,
-              )
+              Image.file(File(path), fit: BoxFit.cover)
             else
               Center(
                 child: Icon(

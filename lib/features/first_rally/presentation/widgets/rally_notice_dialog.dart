@@ -68,7 +68,8 @@ class RallyNoticeDialog extends StatelessWidget {
                 Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
+                  style: CupertinoTheme.of(context).textTheme.textStyle
+                      .copyWith(
                         color: CupertinoColors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -80,7 +81,8 @@ class RallyNoticeDialog extends StatelessWidget {
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
+                  style: CupertinoTheme.of(context).textTheme.textStyle
+                      .copyWith(
                         color: CupertinoColors.white.withValues(alpha: 0.78),
                         fontSize: 13,
                         height: 1.4,
@@ -103,7 +105,8 @@ class RallyNoticeDialog extends StatelessWidget {
                     ),
                     child: Text(
                       actionLabel,
-                      style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
+                      style: CupertinoTheme.of(context).textTheme.textStyle
+                          .copyWith(
                             color: const Color(0xFF2C0B59),
                             fontSize: 14,
                             fontWeight: FontWeight.w800,

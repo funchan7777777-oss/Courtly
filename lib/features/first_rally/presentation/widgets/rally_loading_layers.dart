@@ -70,10 +70,7 @@ class _RallyOpeningLoadState extends State<RallyOpeningLoad>
 }
 
 class RallyEntryLoadingCurtain extends StatefulWidget {
-  const RallyEntryLoadingCurtain({
-    required this.label,
-    super.key,
-  });
+  const RallyEntryLoadingCurtain({required this.label, super.key});
 
   final String label;
 
@@ -155,7 +152,8 @@ class _RallyEntryLoadingCurtainState extends State<RallyEntryLoadingCurtain>
                   const SizedBox(height: 16),
                   Text(
                     widget.label,
-                    style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
+                    style: CupertinoTheme.of(context).textTheme.textStyle
+                        .copyWith(
                           color: CupertinoColors.white,
                           fontSize: 14,
                           fontWeight: FontWeight.w800,

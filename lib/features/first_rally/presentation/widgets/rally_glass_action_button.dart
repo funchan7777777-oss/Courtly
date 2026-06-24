@@ -46,13 +46,13 @@ class RallyGlassActionButton extends StatelessWidget {
             : Text(
                 label,
                 style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
-                      color: isEmphasized
-                          ? const Color(0xFF2F2B36)
-                          : CupertinoColors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
-                    ),
+                  color: isEmphasized
+                      ? const Color(0xFF2F2B36)
+                      : CupertinoColors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
               ),
       ),
     );

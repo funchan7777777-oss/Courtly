@@ -119,12 +119,12 @@ class _RegisterBridgeLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = CupertinoTheme.of(context).textTheme.textStyle.copyWith(
-          color: CupertinoColors.white.withValues(alpha: 0.78),
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0,
-          decoration: TextDecoration.none,
-        );
+      color: CupertinoColors.white.withValues(alpha: 0.78),
+      fontSize: 11,
+      fontWeight: FontWeight.w500,
+      letterSpacing: 0,
+      decoration: TextDecoration.none,
+    );
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
