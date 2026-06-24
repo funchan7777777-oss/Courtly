@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:courtly/shared/social/courtly_social_store.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -117,97 +119,88 @@ class _CourtlyModerationSheet extends StatefulWidget {
 }
 
 class _CourtlyModerationSheetState extends State<_CourtlyModerationSheet> {
+  CourtlyModerationAction _selectedAction = CourtlyModerationAction.block;
   String _reason = _reasons.first;
+  bool _choosingReason = false;
   bool _submitting = false;
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final width = (MediaQuery.sizeOf(context).width - 54)
+        .clamp(280.0, 336.0)
+        .toDouble();
 
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Container(
-        margin: EdgeInsets.only(
-          bottom: bottomPadding == 0 ? 12 : bottomPadding,
-        ),
-        width: double.infinity,
-        constraints: const BoxConstraints(maxWidth: 390),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-        decoration: const BoxDecoration(
-          color: Color(0xFF1A004D),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x77000000),
-              blurRadius: 28,
-              offset: Offset(0, -10),
-            ),
-          ],
-        ),
-        child: DefaultTextStyle(
-          style: _sheetTextStyle(),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    CupertinoIcons.exclamationmark_shield_fill,
-                    color: Color(0xFFFF2DD2),
-                    size: 28,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      widget.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _sheetTextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ],
+    return Center(
+      child: DefaultTextStyle(
+        style: _sheetTextStyle(),
+        child: Container(
+          width: width,
+          decoration: BoxDecoration(
+            color: const Color(0xFF2A005F),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x77000000),
+                blurRadius: 30,
+                offset: Offset(0, 16),
               ),
-              const SizedBox(height: 14),
-              Text(
-                'Choose a report reason',
-                style: _sheetTextStyle(
-                  color: CupertinoColors.white.withValues(alpha: 0.7),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final reason in _reasons)
-                    _ReasonChip(
-                      label: reason,
-                      selected: _reason == reason,
-                      onPressed: () => setState(() => _reason = reason),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              _SheetPrimaryButton(
-                label: 'Report',
-                busy: _submitting,
-                onPressed: _report,
-              ),
-              if (widget.allowBlock) ...[
-                const SizedBox(height: 10),
-                _SheetSecondaryButton(label: 'Block user', onPressed: _block),
-              ],
             ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/images/Meetup.png',
+                  height: 126,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    child: _choosingReason
+                        ? _ReportReasonStep(
+                            key: const ValueKey<String>('reason'),
+                            reason: _reason,
+                            submitting: _submitting,
+                            onReasonChanged: (reason) {
+                              setState(() => _reason = reason);
+                            },
+                            onBack: () {
+                              setState(() => _choosingReason = false);
+                            },
+                            onConfirm: _report,
+                          )
+                        : _ModerationActionStep(
+                            key: const ValueKey<String>('action'),
+                            selectedAction: _selectedAction,
+                            allowBlock: widget.allowBlock,
+                            submitting: _submitting,
+                            onChanged: (action) {
+                              setState(() => _selectedAction = action);
+                            },
+                            onConfirm: _confirmAction,
+                          ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  void _confirmAction() {
+    if (_selectedAction == CourtlyModerationAction.report) {
+      setState(() => _choosingReason = true);
+      return;
+    }
+    unawaited(_block());
   }
 
   Future<void> _report() async {
@@ -257,6 +250,193 @@ class _CourtlyModerationSheetState extends State<_CourtlyModerationSheet> {
     'Impersonation',
     'Other',
   ];
+}
+
+class _ModerationActionStep extends StatelessWidget {
+  const _ModerationActionStep({
+    required this.selectedAction,
+    required this.allowBlock,
+    required this.submitting,
+    required this.onChanged,
+    required this.onConfirm,
+    super.key,
+  });
+
+  final CourtlyModerationAction selectedAction;
+  final bool allowBlock;
+  final bool submitting;
+  final ValueChanged<CourtlyModerationAction> onChanged;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      key: key,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ModerationChoiceRow(
+          label: 'Report',
+          icon: CupertinoIcons.exclamationmark_square_fill,
+          selected: selectedAction == CourtlyModerationAction.report,
+          onPressed: () => onChanged(CourtlyModerationAction.report),
+        ),
+        if (allowBlock) ...[
+          const SizedBox(height: 18),
+          _ModerationChoiceRow(
+            label: 'Block',
+            icon: CupertinoIcons.exclamationmark_circle_fill,
+            selected: selectedAction == CourtlyModerationAction.block,
+            onPressed: () => onChanged(CourtlyModerationAction.block),
+          ),
+        ],
+        const SizedBox(height: 28),
+        _SheetImageButton(busy: submitting, onPressed: onConfirm),
+      ],
+    );
+  }
+}
+
+class _ReportReasonStep extends StatelessWidget {
+  const _ReportReasonStep({
+    required this.reason,
+    required this.submitting,
+    required this.onReasonChanged,
+    required this.onBack,
+    required this.onConfirm,
+    super.key,
+  });
+
+  final String reason;
+  final bool submitting;
+  final ValueChanged<String> onReasonChanged;
+  final VoidCallback onBack;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      key: key,
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            CupertinoButton(
+              minimumSize: Size.zero,
+              padding: EdgeInsets.zero,
+              onPressed: onBack,
+              child: const Icon(
+                CupertinoIcons.chevron_left,
+                color: CupertinoColors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Report type',
+              style: _sheetTextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final value in _CourtlyModerationSheetState._reasons)
+              _ReasonChip(
+                label: value,
+                selected: reason == value,
+                onPressed: () => onReasonChanged(value),
+              ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _SheetImageButton(busy: submitting, onPressed: onConfirm),
+      ],
+    );
+  }
+}
+
+class _ModerationChoiceRow extends StatelessWidget {
+  const _ModerationChoiceRow({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      child: Container(
+        height: 54,
+        decoration: BoxDecoration(
+          color: const Color(0xFF59308B),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 20),
+            Icon(icon, color: CupertinoColors.white, size: 23),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                label,
+                style: _sheetTextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            Icon(
+              selected
+                  ? CupertinoIcons.check_mark_circled_solid
+                  : CupertinoIcons.circle_fill,
+              color: CupertinoColors.white.withValues(
+                alpha: selected ? 1 : 0.1,
+              ),
+              size: 25,
+            ),
+            const SizedBox(width: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetImageButton extends StatelessWidget {
+  const _SheetImageButton({required this.busy, required this.onPressed});
+
+  final bool busy;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      onPressed: busy ? null : onPressed,
+      child: SizedBox(
+        width: 242,
+        height: 55,
+        child: busy
+            ? const Center(
+                child: CupertinoActivityIndicator(color: CupertinoColors.white),
+              )
+            : Image.asset('assets/images/Trophy.png', fit: BoxFit.fill),
+      ),
+    );
+  }
 }
 
 class _ReasonChip extends StatelessWidget {

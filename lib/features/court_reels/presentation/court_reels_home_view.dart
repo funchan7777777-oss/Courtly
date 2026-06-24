@@ -84,9 +84,6 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
                   onModerate: () {
                     unawaited(_openModeration(reel));
                   },
-                  onShare: () {
-                    unawaited(_shareReel(reel));
-                  },
                 );
               },
             ),
@@ -275,41 +272,12 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
     );
   }
 
-  Future<void> _shareReel(CourtReel reel) async {
-    final index = _reels.indexWhere((entry) => entry.id == reel.id);
-    if (index != -1) {
-      _replaceReelAt(index, reel.copyWith(shares: reel.shares + 1));
-    }
-    await _showNotice(
-      title: 'Shared',
-      message: 'This rally was added to your send queue.',
-    );
-  }
-
   void _replaceReelAt(int index, CourtReel reel) {
     setState(() {
       final nextReels = List<CourtReel>.of(_reels);
       nextReels[index] = reel;
       _reels = nextReels;
     });
-  }
-
-  Future<void> _showNotice({required String title, required String message}) {
-    return showCupertinoDialog<void>(
-      context: context,
-      builder: (context) {
-        return CupertinoAlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
   }
 }
 
@@ -327,7 +295,6 @@ class CourtReelStage extends StatelessWidget {
     required this.onOpenProfile,
     required this.onComment,
     required this.onModerate,
-    required this.onShare,
     super.key,
   });
 
@@ -343,7 +310,6 @@ class CourtReelStage extends StatelessWidget {
   final VoidCallback onOpenProfile;
   final VoidCallback onComment;
   final VoidCallback onModerate;
-  final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -393,7 +359,6 @@ class CourtReelStage extends StatelessWidget {
             onLike: onLike,
             onComment: onComment,
             onModerate: onModerate,
-            onShare: onShare,
           ),
         ),
         if (isActive && !isPlaying)
@@ -608,7 +573,6 @@ class _ReelActionRail extends StatelessWidget {
     required this.onLike,
     required this.onComment,
     required this.onModerate,
-    required this.onShare,
   });
 
   final CourtReel reel;
@@ -617,7 +581,6 @@ class _ReelActionRail extends StatelessWidget {
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onModerate;
-  final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -646,12 +609,6 @@ class _ReelActionRail extends StatelessWidget {
           icon: CupertinoIcons.chat_bubble_text_fill,
           label: _formatCount(reel.comments.length),
           onPressed: onComment,
-        ),
-        const SizedBox(height: 18),
-        _RailImageButton(
-          assetPath: 'assets/images/Streak.png',
-          label: _formatCount(reel.shares),
-          onPressed: onShare,
         ),
       ],
     );
@@ -687,27 +644,6 @@ class _RailIconButton extends StatelessWidget {
   }
 }
 
-class _RailImageButton extends StatelessWidget {
-  const _RailImageButton({
-    required this.assetPath,
-    required this.onPressed,
-    this.label,
-  });
-
-  final String assetPath;
-  final String? label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return _RailShell(
-      label: label,
-      onPressed: onPressed,
-      child: Image.asset(assetPath, width: 32, height: 32, fit: BoxFit.contain),
-    );
-  }
-}
-
 class _LikeRailButton extends StatelessWidget {
   const _LikeRailButton({
     required this.isLiked,
@@ -732,35 +668,22 @@ class _LikeRailButton extends StatelessWidget {
             scale: isLiked ? 1.08 : 1,
             duration: const Duration(milliseconds: 170),
             curve: Curves.easeOutBack,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 170),
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: isLiked
-                    ? const Color(0xFFFF2FD2).withValues(alpha: 0.22)
-                    : CupertinoColors.black.withValues(alpha: 0.24),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isLiked
-                      ? const Color(0xFFFF2FD2)
-                      : CupertinoColors.white.withValues(alpha: 0.76),
-                  width: 1.6,
-                ),
-              ),
+            child: SizedBox.square(
+              dimension: 50,
               child: Center(
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 150),
                   transitionBuilder: (child, animation) {
                     return ScaleTransition(scale: animation, child: child);
                   },
-                  child: Icon(
-                    isLiked ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+                  child: Image.asset(
+                    isLiked
+                        ? 'assets/images/Locker.png'
+                        : 'assets/images/Hei.png',
                     key: ValueKey<bool>(isLiked),
-                    color: isLiked
-                        ? const Color(0xFFFF2FD2)
-                        : CupertinoColors.white,
-                    size: 28,
+                    width: 38,
+                    height: 38,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
@@ -872,9 +795,8 @@ class _ReelCaptionBlock extends StatelessWidget {
                     color: reel.gender == CourtReelGender.female
                         ? const Color(0xFFFF70C8)
                         : const Color(0xFF8EC5FF),
-                    label: reel.gender == CourtReelGender.female
-                        ? 'Female'
-                        : 'Male',
+                    label:
+                        '${reel.gender == CourtReelGender.female ? '♀' : '♂'} ${reel.ageLabel}',
                   ),
                 ],
               ),

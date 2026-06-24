@@ -686,8 +686,8 @@ class _PostCard extends StatelessWidget {
               children: [
                 _PostMetricButton(
                   iconAsset: post.isLiked
-                      ? 'assets/images/Racquet.png'
-                      : 'assets/images/Volley.png',
+                      ? 'assets/images/Locker.png'
+                      : 'assets/images/Hei.png',
                   label: _countLabel(post.likes),
                   onPressed: onToggleLike,
                 ),

@@ -4,6 +4,7 @@ class CourtReel {
     required this.userId,
     required this.playerName,
     required this.gender,
+    required this.ageLabel,
     required this.createdAtLabel,
     required this.caption,
     required this.backdropAsset,
@@ -20,6 +21,7 @@ class CourtReel {
   final String userId;
   final String playerName;
   final CourtReelGender gender;
+  final String ageLabel;
   final String createdAtLabel;
   final String caption;
   final String backdropAsset;
@@ -36,6 +38,7 @@ class CourtReel {
     String? userId,
     String? playerName,
     CourtReelGender? gender,
+    String? ageLabel,
     String? createdAtLabel,
     String? caption,
     String? backdropAsset,
@@ -52,6 +55,7 @@ class CourtReel {
       userId: userId ?? this.userId,
       playerName: playerName ?? this.playerName,
       gender: gender ?? this.gender,
+      ageLabel: ageLabel ?? this.ageLabel,
       createdAtLabel: createdAtLabel ?? this.createdAtLabel,
       caption: caption ?? this.caption,
       backdropAsset: backdropAsset ?? this.backdropAsset,
