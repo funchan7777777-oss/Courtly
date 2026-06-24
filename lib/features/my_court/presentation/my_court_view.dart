@@ -6,6 +6,7 @@ import 'package:courtly/features/club_chats/presentation/club_chats_view.dart';
 import 'package:courtly/features/first_rally/data/rally_session_vault.dart';
 import 'package:courtly/features/first_rally/domain/rally_entry_draft.dart';
 import 'package:courtly/features/first_rally/presentation/pages/rally_welcome_choice_page.dart';
+import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -269,7 +270,7 @@ class _ProfileHero extends StatelessWidget {
         Positioned(
           left: 22,
           right: 22,
-          top: 44,
+          top: courtlySafeTop(context, 10),
           child: Row(
             children: [
               Image.asset(
@@ -1219,7 +1220,7 @@ class _SimpleHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 44, 14, 0),
+      padding: EdgeInsets.fromLTRB(14, courtlySafeTop(context, 10), 14, 0),
       child: SizedBox(
         height: 42,
         child: Row(
@@ -1950,7 +1951,7 @@ class _MyCourtProfile {
       fans: 125,
       follows: 125,
       friends: 125,
-      avatarImagePath: 'assets/images/Story.png',
+      avatarImagePath: 'assets/images/head/women/woman_head_20.jpg',
     );
   }
 
@@ -2024,8 +2025,8 @@ abstract final class _CourtPersonSeed {
         name: 'Francis',
         ageLabel: '25',
         country: 'Colombia',
-        avatarAsset: 'assets/images/Story.png',
-        heroAsset: 'assets/images/Forehand.png',
+        avatarAsset: 'assets/images/head/men/man_head_10.jpg',
+        heroAsset: 'assets/images/post/post_moment_13.jpg',
         motto:
             'One ball, one racket, pure freedom. The racket catches the dusk wind.',
         followed: false,
@@ -2040,8 +2041,8 @@ abstract final class _CourtPersonSeed {
         name: 'Francis',
         ageLabel: '25',
         country: 'Colombia',
-        avatarAsset: 'assets/images/Story.png',
-        heroAsset: 'assets/images/Forehand.png',
+        avatarAsset: 'assets/images/head/men/man_head_11.jpg',
+        heroAsset: 'assets/images/post/post_moment_14.jpg',
         motto:
             'One ball, one racket, pure freedom. The racket catches the dusk wind.',
         followed: false,
@@ -2056,8 +2057,8 @@ abstract final class _CourtPersonSeed {
         name: 'Francis',
         ageLabel: '25',
         country: 'Colombia',
-        avatarAsset: 'assets/images/Story.png',
-        heroAsset: 'assets/images/Profile.png',
+        avatarAsset: 'assets/images/head/men/man_head_12.jpg',
+        heroAsset: 'assets/images/post/post_moment_15.jpg',
         motto:
             'One ball, one racket, pure freedom. The racket catches the dusk wind.',
         followed: true,
@@ -2072,8 +2073,8 @@ abstract final class _CourtPersonSeed {
         name: 'Francis',
         ageLabel: '25',
         country: 'Colombia',
-        avatarAsset: 'assets/images/Story.png',
-        heroAsset: 'assets/images/Surface.png',
+        avatarAsset: 'assets/images/head/men/man_head_13.jpg',
+        heroAsset: 'assets/images/post/post_moment_16.jpg',
         motto:
             'One ball, one racket, pure freedom. The racket catches the dusk wind.',
         followed: true,
@@ -2101,12 +2102,12 @@ enum _PeopleListKind {
 }
 
 const List<String> _videoAssets = [
-  'assets/images/Forehand.png',
-  'assets/images/Profile.png',
-  'assets/images/Surface.png',
-  'assets/images/Arena.png',
-  'assets/images/Backhand.png',
-  'assets/images/Strings.png',
+  'assets/images/post/post_moment_15.jpg',
+  'assets/images/post/post_moment_16.jpg',
+  'assets/images/post/post_moment_17.jpg',
+  'assets/images/post/post_moment_18.jpg',
+  'assets/images/post/post_moment_19.jpg',
+  'assets/images/post/post_moment_20.jpg',
 ];
 
 const List<String> _postNotes = [

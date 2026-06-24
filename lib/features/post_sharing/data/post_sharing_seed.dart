@@ -1,145 +1,121 @@
 import 'package:courtly/features/post_sharing/domain/post_sharing_post.dart';
+import 'package:courtly/shared/data/courtly_media_assets.dart';
 
 abstract final class PostSharingSeed {
-  static const List<PostSharingPost> openingPosts = [
-    PostSharingPost(
-      id: 'bettie-night-court',
-      authorName: 'Bettie Norton',
-      createdAtLabel: '2025/11/25 08:45',
-      body: 'The racket catches the dusk wind, all worries fade with every hit',
-      imageAsset: 'assets/images/Backhand.png',
-      avatarAsset: 'assets/images/Story.png',
-      likes: 158,
-      isLiked: true,
-      isFollowed: false,
-      comments: [
-        PostSharingComment(
-          authorName: 'Evan Perkins',
-          createdAtLabel: '08:45',
-          body:
-              'This hand brewed coffee is very fragrant and has a faint jasmine aroma~',
-          avatarAsset: 'assets/images/Invite.png',
-        ),
-        PostSharingComment(
-          authorName: 'Rina Holt',
-          createdAtLabel: '08:52',
-          body: 'Night courts make the timing look even cleaner.',
-          avatarAsset: 'assets/images/Story.png',
-        ),
-        PostSharingComment(
-          authorName: 'Miles Young',
-          createdAtLabel: '09:10',
-          body: 'That forehand finish is the reminder I needed today.',
-          avatarAsset: 'assets/images/Invite.png',
-        ),
-      ],
-      videoAssets: [
-        'assets/images/Backhand.png',
-        'assets/images/Forehand.png',
-        'assets/images/Profile.png',
-        'assets/images/Surface.png',
-        'assets/images/Backhand.png',
-        'assets/images/Forehand.png',
-      ],
-    ),
-    PostSharingPost(
-      id: 'francis-repeat-swings',
-      authorName: 'Francis Aguilar',
-      createdAtLabel: '2025/10/14 11:23',
-      body: 'Days of repeated swings shape a better version of me',
-      imageAsset: 'assets/images/Forehand.png',
-      avatarAsset: 'assets/images/Invite.png',
-      likes: 96,
-      isLiked: false,
-      isFollowed: true,
-      comments: [
-        PostSharingComment(
-          authorName: 'Sophia Marshall',
-          createdAtLabel: '11:38',
-          body: 'Small repetitions are doing the real work.',
-          avatarAsset: 'assets/images/Story.png',
-        ),
-      ],
-      videoAssets: [
-        'assets/images/Forehand.png',
-        'assets/images/Backhand.png',
-        'assets/images/Profile.png',
-      ],
-    ),
-    PostSharingPost(
-      id: 'claire-soft-hands',
-      authorName: 'Claire West',
-      createdAtLabel: '2025/09/28 19:02',
-      body: 'Soft hands at the net, brave feet on every split step',
-      imageAsset: 'assets/images/Profile.png',
-      avatarAsset: 'assets/images/Story.png',
-      likes: 212,
-      isLiked: false,
-      isFollowed: false,
-      comments: [
-        PostSharingComment(
-          authorName: 'Terry George',
-          createdAtLabel: '19:21',
-          body: 'Saving this for volley practice before Friday.',
-          avatarAsset: 'assets/images/Invite.png',
-        ),
-        PostSharingComment(
-          authorName: 'Nina Green',
-          createdAtLabel: '19:34',
-          body: 'Great reminder to move through the ball.',
-          avatarAsset: 'assets/images/Story.png',
-        ),
-      ],
-      videoAssets: [
-        'assets/images/Profile.png',
-        'assets/images/Backhand.png',
-        'assets/images/Surface.png',
-      ],
-    ),
+  static final List<PostSharingPost> openingPosts = List.generate(
+    CourtlyMediaAssets.postImages.length,
+    (index) {
+      final author = _authors[index % _authors.length];
+      final commentAuthor = _commentAuthors[index % _commentAuthors.length];
+      final avatar = CourtlyMediaAssets.allHeads[index];
+      final commentAvatar = CourtlyMediaAssets
+          .allHeads[(index + 20) % CourtlyMediaAssets.allHeads.length];
+
+      return PostSharingPost(
+        id: 'post-${(index + 1).toString().padLeft(2, '0')}',
+        authorName: author,
+        createdAtLabel:
+            '2025/11/${(index + 1).toString().padLeft(2, '0')} 08:45',
+        body: _captions[index % _captions.length],
+        imageAsset: CourtlyMediaAssets.postImages[index],
+        avatarAsset: avatar,
+        likes: 96 + (index * 37),
+        isLiked: index.isEven,
+        isFollowed: index % 3 == 0,
+        comments: [
+          PostSharingComment(
+            authorName: commentAuthor,
+            createdAtLabel: '08:${(40 + index).toString().padLeft(2, '0')}',
+            body: _commentBodies[index % _commentBodies.length],
+            avatarAsset: commentAvatar,
+          ),
+          PostSharingComment(
+            authorName: 'Court Partner',
+            createdAtLabel: '09:${(10 + index).toString().padLeft(2, '0')}',
+            body: 'Saving this tennis note for the next practice block.',
+            avatarAsset: CourtlyMediaAssets
+                .allHeads[(index + 7) % CourtlyMediaAssets.allHeads.length],
+          ),
+        ],
+        videoAssets: [
+          CourtlyMediaAssets.postImages[index],
+          CourtlyMediaAssets.postImages[(index + 1) %
+              CourtlyMediaAssets.postImages.length],
+          CourtlyMediaAssets.postImages[(index + 2) %
+              CourtlyMediaAssets.postImages.length],
+          CourtlyMediaAssets.postImages[(index + 3) %
+              CourtlyMediaAssets.postImages.length],
+          CourtlyMediaAssets.postImages[(index + 4) %
+              CourtlyMediaAssets.postImages.length],
+          CourtlyMediaAssets.postImages[(index + 5) %
+              CourtlyMediaAssets.postImages.length],
+        ],
+      );
+    },
+  );
+
+  static final List<PostRankingEntry> ranking = List.generate(10, (index) {
+    return PostRankingEntry(
+      rank: index + 1,
+      name: _rankingNames[index],
+      avatarAsset: CourtlyMediaAssets
+          .allHeads[(index + 30) % CourtlyMediaAssets.allHeads.length],
+      checkInDays: 520 - (index * 13),
+    );
+  });
+
+  static const List<String> _authors = [
+    'Bettie Norton',
+    'Francis Aguilar',
+    'Claire West',
+    'Noah Hart',
+    'Mina Cross',
+    'Hollis Park',
+    'Sofia Lane',
+    'Arden Cole',
+    'Iris Stone',
+    'Leo Grant',
   ];
 
-  static const List<PostRankingEntry> ranking = [
-    PostRankingEntry(
-      rank: 1,
-      name: 'Brent',
-      avatarAsset: 'assets/images/Story.png',
-      checkInDays: 520,
-    ),
-    PostRankingEntry(
-      rank: 2,
-      name: 'Jennie',
-      avatarAsset: 'assets/images/Invite.png',
-      checkInDays: 312,
-    ),
-    PostRankingEntry(
-      rank: 3,
-      name: 'Glenn',
-      avatarAsset: 'assets/images/Story.png',
-      checkInDays: 258,
-    ),
-    PostRankingEntry(
-      rank: 4,
-      name: 'Sophia Marshall',
-      avatarAsset: 'assets/images/Invite.png',
-      checkInDays: 522,
-    ),
-    PostRankingEntry(
-      rank: 5,
-      name: 'Elizabeth Richards',
-      avatarAsset: 'assets/images/Story.png',
-      checkInDays: 522,
-    ),
-    PostRankingEntry(
-      rank: 6,
-      name: 'Terry George',
-      avatarAsset: 'assets/images/Invite.png',
-      checkInDays: 522,
-    ),
-    PostRankingEntry(
-      rank: 7,
-      name: 'Bernice May',
-      avatarAsset: 'assets/images/Story.png',
-      checkInDays: 522,
-    ),
+  static const List<String> _commentAuthors = [
+    'Evan Perkins',
+    'Rina Holt',
+    'Miles Young',
+    'Sophia Marshall',
+    'Elizabeth Richards',
+    'Terry George',
+    'Bernice May',
+    'Nina Green',
+    'Mike Mack',
+    'Grace Liu',
+  ];
+
+  static const List<String> _rankingNames = [
+    'Brent',
+    'Jennie',
+    'Glenn',
+    'Sophia Marshall',
+    'Elizabeth Richards',
+    'Terry George',
+    'Bernice May',
+    'Nina Green',
+    'Mike Mack',
+    'Avery Stone',
+  ];
+
+  static const List<String> _captions = [
+    'The racket catches the dusk wind, all worries fade with every hit.',
+    'Days of repeated swings shape a better version of my court rhythm.',
+    'Soft hands at the net, brave feet on every split step.',
+    'A compact serve session with loose shoulders and clear targets.',
+    'Finding the next point with patience, spin, and a better recovery step.',
+  ];
+
+  static const List<String> _commentBodies = [
+    'This rhythm looks ready for match day.',
+    'The footwork cue is easy to follow.',
+    'Night courts make the timing look even cleaner.',
+    'That contact point is worth replaying.',
+    'The rally shape feels calm and confident.',
   ];
 }

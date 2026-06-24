@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:courtly/features/post_sharing/data/post_sharing_seed.dart';
 import 'package:courtly/features/post_sharing/domain/post_sharing_post.dart';
+import 'package:courtly/shared/data/courtly_media_assets.dart';
+import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -34,7 +36,12 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 42, 22, 0),
+                padding: EdgeInsets.fromLTRB(
+                  22,
+                  courtlySafeTop(context, 8),
+                  22,
+                  0,
+                ),
                 child: _PostTopBar(onCompose: _openComposer),
               ),
             ),
@@ -47,6 +54,8 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
                 ),
               ),
             ),
+            const SliverToBoxAdapter(child: _ActivePlayersStrip()),
+            const SliverToBoxAdapter(child: SizedBox(height: 18)),
             SliverList.separated(
               itemCount: _posts.length,
               itemBuilder: (context, index) {
@@ -93,16 +102,16 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
       authorName: 'You',
       createdAtLabel: _formatNow(),
       body: draft.body,
-      imageAsset: 'assets/images/Backhand.png',
-      avatarAsset: 'assets/images/Story.png',
+      imageAsset: draft.imagePath,
+      avatarAsset: CourtlyMediaAssets.womenHeads.first,
       likes: 0,
       isLiked: false,
       isFollowed: true,
       comments: const [],
-      videoAssets: const [
-        'assets/images/Backhand.png',
-        'assets/images/Forehand.png',
-        'assets/images/Profile.png',
+      videoAssets: [
+        CourtlyMediaAssets.postImages[0],
+        CourtlyMediaAssets.postImages[1],
+        CourtlyMediaAssets.postImages[2],
       ],
     );
 
@@ -390,6 +399,42 @@ class _ShortcutRow extends StatelessWidget {
   }
 }
 
+class _ActivePlayersStrip extends StatelessWidget {
+  const _ActivePlayersStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 64,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: CourtlyMediaAssets.allHeads.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: index.isEven ? _postPink : CupertinoColors.white,
+                width: 2,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: _Avatar(
+                assetPath: CourtlyMediaAssets.allHeads[index],
+                size: 52,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _ShortcutCard extends StatelessWidget {
   const _ShortcutCard({
     required this.title,
@@ -564,8 +609,8 @@ class _PostCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 child: AspectRatio(
                   aspectRatio: 1.18,
-                  child: Image.asset(
-                    post.imageAsset,
+                  child: _PostImage(
+                    imagePath: post.imageAsset,
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
                   ),
@@ -699,8 +744,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            _post.imageAsset,
+          _PostImage(
+            imagePath: _post.imageAsset,
             fit: BoxFit.cover,
             alignment: Alignment.topCenter,
           ),
@@ -718,7 +763,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
             ),
           ),
           Positioned(
-            top: 40,
+            top: courtlySafeTop(context, 8),
             left: 12,
             child: _RoundIconButton(
               icon: CupertinoIcons.chevron_left,
@@ -726,7 +771,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
             ),
           ),
           Positioned(
-            top: 42,
+            top: courtlySafeTop(context, 10),
             right: 18,
             child: CupertinoButton(
               minimumSize: Size.zero,
@@ -780,7 +825,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
             authorName: 'You',
             createdAtLabel: 'now',
             body: body,
-            avatarAsset: 'assets/images/Story.png',
+            avatarAsset: CourtlyMediaAssets.womenHeads.first,
           ),
         ],
       );
@@ -931,7 +976,7 @@ class _PostComposerPageState extends State<PostComposerPage> {
           fit: StackFit.expand,
           children: [
             Positioned(
-              top: 40,
+              top: courtlySafeTop(context, 8),
               left: 12,
               child: _RoundIconButton(
                 icon: CupertinoIcons.chevron_left,
@@ -939,7 +984,7 @@ class _PostComposerPageState extends State<PostComposerPage> {
               ),
             ),
             Positioned(
-              top: 52,
+              top: courtlySafeTop(context, 20),
               left: 74,
               right: 74,
               child: Text(
@@ -1159,8 +1204,8 @@ class _PostUserHomePageState extends State<PostUserHomePage> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            _post.imageAsset,
+          _PostImage(
+            imagePath: _post.imageAsset,
             fit: BoxFit.cover,
             alignment: Alignment.topCenter,
           ),
@@ -1178,7 +1223,7 @@ class _PostUserHomePageState extends State<PostUserHomePage> {
             ),
           ),
           Positioned(
-            top: 40,
+            top: courtlySafeTop(context, 8),
             left: 12,
             child: _RoundIconButton(
               icon: CupertinoIcons.chevron_left,
@@ -1186,7 +1231,7 @@ class _PostUserHomePageState extends State<PostUserHomePage> {
             ),
           ),
           Positioned(
-            top: 50,
+            top: courtlySafeTop(context, 18),
             right: 18,
             child: const Icon(
               CupertinoIcons.ellipsis_circle_fill,
@@ -1311,8 +1356,8 @@ class _VideoGrid extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.asset(
-                videoAssets[index],
+              _PostImage(
+                imagePath: videoAssets[index],
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
               ),
@@ -1388,7 +1433,7 @@ class _TennisCheckInPageState extends State<TennisCheckInPage> {
           fit: StackFit.expand,
           children: [
             Positioned(
-              top: 40,
+              top: courtlySafeTop(context, 8),
               left: 12,
               child: _RoundIconButton(
                 icon: CupertinoIcons.chevron_left,
@@ -1396,7 +1441,7 @@ class _TennisCheckInPageState extends State<TennisCheckInPage> {
               ),
             ),
             Positioned(
-              top: 52,
+              top: courtlySafeTop(context, 20),
               left: 74,
               right: 74,
               child: Text(
@@ -1410,7 +1455,7 @@ class _TennisCheckInPageState extends State<TennisCheckInPage> {
               ),
             ),
             Positioned.fill(
-              top: 100,
+              top: courtlySafeTop(context, 68),
               bottom: 114,
               left: 22,
               right: 22,
@@ -1694,7 +1739,7 @@ class TennisRankingPage extends StatelessWidget {
             ),
           ),
           Positioned(
-            top: 40,
+            top: courtlySafeTop(context, 8),
             left: 12,
             child: _RoundIconButton(
               icon: CupertinoIcons.chevron_left,
@@ -1702,7 +1747,7 @@ class TennisRankingPage extends StatelessWidget {
             ),
           ),
           Positioned(
-            top: 100,
+            top: courtlySafeTop(context, 68),
             left: 24,
             child: Image.asset(
               'assets/images/Umpire.png',
@@ -1714,13 +1759,13 @@ class TennisRankingPage extends StatelessWidget {
           Positioned(
             left: 22,
             right: 22,
-            top: 190,
+            top: courtlySafeTop(context, 158),
             child: _RankingPodium(entries: entries.take(3).toList()),
           ),
           Positioned(
             left: 22,
             right: 22,
-            top: 382,
+            top: courtlySafeTop(context, 350),
             bottom: 108,
             child: _RankingList(entries: entries.skip(3).toList()),
           ),
@@ -2079,6 +2124,27 @@ class _Avatar extends StatelessWidget {
         fit: BoxFit.cover,
       ),
     );
+  }
+}
+
+class _PostImage extends StatelessWidget {
+  const _PostImage({
+    required this.imagePath,
+    required this.fit,
+    required this.alignment,
+  });
+
+  final String imagePath;
+  final BoxFit fit;
+  final Alignment alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    if (imagePath.startsWith('assets/')) {
+      return Image.asset(imagePath, fit: fit, alignment: alignment);
+    }
+
+    return Image.file(File(imagePath), fit: fit, alignment: alignment);
   }
 }
 

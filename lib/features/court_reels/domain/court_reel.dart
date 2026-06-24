@@ -5,6 +5,7 @@ class CourtReel {
     required this.createdAtLabel,
     required this.caption,
     required this.backdropAsset,
+    required this.videoAsset,
     required this.avatarAsset,
     required this.likes,
     required this.shares,
@@ -18,6 +19,7 @@ class CourtReel {
   final String createdAtLabel;
   final String caption;
   final String backdropAsset;
+  final String videoAsset;
   final String avatarAsset;
   final int likes;
   final int shares;
@@ -31,6 +33,7 @@ class CourtReel {
     String? createdAtLabel,
     String? caption,
     String? backdropAsset,
+    String? videoAsset,
     String? avatarAsset,
     int? likes,
     int? shares,
@@ -44,6 +47,7 @@ class CourtReel {
       createdAtLabel: createdAtLabel ?? this.createdAtLabel,
       caption: caption ?? this.caption,
       backdropAsset: backdropAsset ?? this.backdropAsset,
+      videoAsset: videoAsset ?? this.videoAsset,
       avatarAsset: avatarAsset ?? this.avatarAsset,
       likes: likes ?? this.likes,
       shares: shares ?? this.shares,

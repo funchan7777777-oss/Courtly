@@ -1,3 +1,4 @@
+import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:flutter/cupertino.dart';
 
 class RallyBackButton extends StatelessWidget {
@@ -7,7 +8,7 @@ class RallyBackButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned(
       left: 14,
-      top: MediaQuery.sizeOf(context).height * 0.058,
+      top: courtlySafeTop(context, 8),
       child: CupertinoButton(
         minimumSize: Size.zero,
         padding: const EdgeInsets.all(8),

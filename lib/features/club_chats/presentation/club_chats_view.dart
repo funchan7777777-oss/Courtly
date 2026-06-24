@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:courtly/features/club_chats/data/club_chat_seed.dart';
 import 'package:courtly/features/club_chats/domain/club_chat.dart';
+import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:flutter/cupertino.dart';
 
 const Color _chatPurple = Color(0xFF1A004D);
@@ -36,7 +37,12 @@ class _ClubChatsViewState extends State<ClubChatsView> {
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 44, 22, 0),
+                padding: EdgeInsets.fromLTRB(
+                  22,
+                  courtlySafeTop(context, 10),
+                  22,
+                  0,
+                ),
                 child: _ClubChatsTopBar(
                   requestCount: _requests.length,
                   onOpenRequests: _openRequests,
@@ -748,7 +754,7 @@ class _ThreadHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 44, 14, 0),
+      padding: EdgeInsets.fromLTRB(14, courtlySafeTop(context, 10), 14, 0),
       child: SizedBox(
         height: 42,
         child: Row(
@@ -991,7 +997,7 @@ class _ClubVideoCallPageState extends State<ClubVideoCallPage> {
           Positioned(
             left: 14,
             right: 14,
-            top: 44,
+            top: courtlySafeTop(context, 10),
             child: _VideoCallHeader(
               name: conversation.playerName,
               onBack: () => Navigator.of(
@@ -1001,7 +1007,7 @@ class _ClubVideoCallPageState extends State<ClubVideoCallPage> {
           ),
           Positioned(
             right: 24,
-            top: 118,
+            top: courtlySafeTop(context, 84),
             child: _VideoPreview(assetPath: conversation.avatarAsset),
           ),
           Positioned(
@@ -1233,7 +1239,12 @@ class _ClubFriendRequestsPageState extends State<ClubFriendRequestsPage> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 44, 14, 0),
+              padding: EdgeInsets.fromLTRB(
+                14,
+                courtlySafeTop(context, 10),
+                14,
+                0,
+              ),
               child: SizedBox(
                 height: 42,
                 child: Row(
@@ -1377,7 +1388,7 @@ class ClubFriendProfilePage extends StatelessWidget {
     return CupertinoPageScaffold(
       child: _ClubChatBackdrop(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 44, 22, 28),
+          padding: EdgeInsets.fromLTRB(22, courtlySafeTop(context, 10), 22, 28),
           child: Column(
             children: [
               Row(

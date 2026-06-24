@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:courtly/features/court_reels/data/court_reel_seed.dart';
 import 'package:courtly/features/court_reels/domain/court_reel.dart';
+import 'package:courtly/shared/data/courtly_media_assets.dart';
+import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
 
 class CourtReelsHomeView extends StatefulWidget {
   const CourtReelsHomeView({super.key});
@@ -105,8 +109,9 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
       playerName: 'You',
       createdAtLabel: _formatNow(),
       caption: draft.mood,
-      backdropAsset: 'assets/images/Forehand.png',
-      avatarAsset: 'assets/images/Story.png',
+      backdropAsset: CourtlyMediaAssets.postImages.first,
+      videoAsset: draft.videoPath,
+      avatarAsset: CourtlyMediaAssets.womenHeads.first,
       likes: 0,
       shares: 0,
       isLiked: false,
@@ -256,10 +261,10 @@ class CourtReelStage extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset(
-          reel.backdropAsset,
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
+        _ReelVideoBackdrop(
+          videoPath: reel.videoAsset,
+          fallbackAsset: reel.backdropAsset,
+          soundOn: soundOn,
         ),
         const DecoratedBox(
           decoration: BoxDecoration(
@@ -277,7 +282,7 @@ class CourtReelStage extends StatelessWidget {
           ),
         ),
         Positioned(
-          top: 42,
+          top: courtlySafeTop(context, 8),
           left: 22,
           right: 20,
           child: _CourtReelsTopBar(onPublish: onPublish),
@@ -303,6 +308,107 @@ class CourtReelStage extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _ReelVideoBackdrop extends StatefulWidget {
+  const _ReelVideoBackdrop({
+    required this.videoPath,
+    required this.fallbackAsset,
+    required this.soundOn,
+  });
+
+  final String videoPath;
+  final String fallbackAsset;
+  final bool soundOn;
+
+  @override
+  State<_ReelVideoBackdrop> createState() => _ReelVideoBackdropState();
+}
+
+class _ReelVideoBackdropState extends State<_ReelVideoBackdrop> {
+  late VideoPlayerController _controller;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = _makeController(widget.videoPath);
+    unawaited(_prepare());
+  }
+
+  @override
+  void didUpdateWidget(covariant _ReelVideoBackdrop oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoPath != widget.videoPath) {
+      unawaited(_controller.dispose());
+      _ready = false;
+      _controller = _makeController(widget.videoPath);
+      unawaited(_prepare());
+      return;
+    }
+
+    if (oldWidget.soundOn != widget.soundOn) {
+      unawaited(_controller.setVolume(widget.soundOn ? 1 : 0));
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_controller.dispose());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          widget.fallbackAsset,
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
+        ),
+        if (_ready)
+          FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: _controller.value.size.width,
+              height: _controller.value.size.height,
+              child: VideoPlayer(_controller),
+            ),
+          ),
+      ],
+    );
+  }
+
+  VideoPlayerController _makeController(String path) {
+    if (path.startsWith('assets/')) {
+      return VideoPlayerController.asset(path);
+    }
+
+    return VideoPlayerController.file(File(path));
+  }
+
+  Future<void> _prepare() async {
+    try {
+      await _controller.initialize();
+      if (!mounted) {
+        return;
+      }
+      await _controller.setLooping(true);
+      await _controller.setVolume(widget.soundOn ? 1 : 0);
+      await _controller.play();
+      if (!mounted) {
+        return;
+      }
+      setState(() => _ready = true);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _ready = false);
+    }
   }
 }
 
@@ -690,7 +796,7 @@ class _CourtReelReleasePageState extends State<CourtReelReleasePage> {
             ),
           ),
           Positioned(
-            top: 38,
+            top: courtlySafeTop(context, 6),
             left: 14,
             child: _RoundIconButton(
               icon: CupertinoIcons.chevron_left,
@@ -698,7 +804,7 @@ class _CourtReelReleasePageState extends State<CourtReelReleasePage> {
             ),
           ),
           Positioned(
-            top: 48,
+            top: courtlySafeTop(context, 18),
             left: 72,
             right: 72,
             child: Text(
@@ -980,14 +1086,14 @@ class _CourtReelCommentsPageState extends State<CourtReelCommentsPage> {
             ),
           ),
           Positioned(
-            top: 42,
+            top: courtlySafeTop(context, 8),
             left: 22,
             right: 20,
             child: _CourtReelsTopBar(onPublish: widget.onPublish),
           ),
           Positioned(
             left: 14,
-            top: 96,
+            top: courtlySafeTop(context, 62),
             child: _RoundIconButton(
               icon: CupertinoIcons.xmark,
               onPressed: _close,
@@ -1022,7 +1128,7 @@ class _CourtReelCommentsPageState extends State<CourtReelCommentsPage> {
           author: 'You',
           timeLabel: 'now',
           message: message,
-          avatarAsset: 'assets/images/Story.png',
+          avatarAsset: CourtlyMediaAssets.womenHeads.first,
         ),
       ];
       _commentController.clear();
@@ -1451,7 +1557,7 @@ class _EmptyReelsView extends StatelessWidget {
           ),
         ),
         Positioned(
-          top: 42,
+          top: courtlySafeTop(context, 8),
           left: 22,
           right: 20,
           child: _CourtReelsTopBar(onPublish: onPublish),

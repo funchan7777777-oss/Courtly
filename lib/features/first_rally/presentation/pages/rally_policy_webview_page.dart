@@ -1,4 +1,5 @@
 import 'package:courtly/features/first_rally/presentation/widgets/rally_backdrop_layer.dart';
+import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -46,7 +47,7 @@ class _RallyPolicyWebViewPageState extends State<RallyPolicyWebViewPage> {
           fit: StackFit.expand,
           children: [
             Positioned.fill(
-              top: 84,
+              top: courtlySafeTop(context, 58),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
                 child: ClipRRect(
@@ -57,7 +58,7 @@ class _RallyPolicyWebViewPageState extends State<RallyPolicyWebViewPage> {
             ),
             Positioned(
               left: 14,
-              top: 42,
+              top: courtlySafeTop(context, 8),
               child: CupertinoButton(
                 minimumSize: Size.zero,
                 padding: const EdgeInsets.all(8),
@@ -70,7 +71,7 @@ class _RallyPolicyWebViewPageState extends State<RallyPolicyWebViewPage> {
               ),
             ),
             Positioned(
-              top: 52,
+              top: courtlySafeTop(context, 18),
               left: 58,
               right: 58,
               child: Text(
@@ -91,7 +92,7 @@ class _RallyPolicyWebViewPageState extends State<RallyPolicyWebViewPage> {
               Positioned(
                 left: 24,
                 right: 24,
-                top: 80,
+                top: courtlySafeTop(context, 54),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(999),
                   child: SizedBox(
