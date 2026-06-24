@@ -2,6 +2,7 @@ class CourtReel {
   const CourtReel({
     required this.id,
     required this.playerName,
+    required this.gender,
     required this.createdAtLabel,
     required this.caption,
     required this.backdropAsset,
@@ -16,6 +17,7 @@ class CourtReel {
 
   final String id;
   final String playerName;
+  final CourtReelGender gender;
   final String createdAtLabel;
   final String caption;
   final String backdropAsset;
@@ -30,6 +32,7 @@ class CourtReel {
   CourtReel copyWith({
     String? id,
     String? playerName,
+    CourtReelGender? gender,
     String? createdAtLabel,
     String? caption,
     String? backdropAsset,
@@ -44,6 +47,7 @@ class CourtReel {
     return CourtReel(
       id: id ?? this.id,
       playerName: playerName ?? this.playerName,
+      gender: gender ?? this.gender,
       createdAtLabel: createdAtLabel ?? this.createdAtLabel,
       caption: caption ?? this.caption,
       backdropAsset: backdropAsset ?? this.backdropAsset,
@@ -57,6 +61,8 @@ class CourtReel {
     );
   }
 }
+
+enum CourtReelGender { female, male }
 
 class CourtReelComment {
   const CourtReelComment({

@@ -21,6 +21,7 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
   List<CourtReel> _reels = List<CourtReel>.of(CourtReelSeed.openingFeed);
   int _currentIndex = 0;
   bool _soundOn = true;
+  bool _isPlaying = true;
 
   @override
   void dispose() {
@@ -41,14 +42,22 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
               controller: _pageController,
               scrollDirection: Axis.vertical,
               itemCount: _reels.length,
-              onPageChanged: (index) => setState(() => _currentIndex = index),
+              onPageChanged: (index) => setState(() {
+                _currentIndex = index;
+                _isPlaying = true;
+              }),
               itemBuilder: (context, index) {
                 final reel = _reels[index];
 
                 return CourtReelStage(
                   reel: reel,
                   soundOn: _soundOn,
+                  isActive: index == _currentIndex,
+                  isPlaying: _isPlaying,
                   onSoundToggle: () => setState(() => _soundOn = !_soundOn),
+                  onVideoToggle: () {
+                    setState(() => _isPlaying = !_isPlaying);
+                  },
                   onPublish: () {
                     unawaited(_openComposer());
                   },
@@ -107,6 +116,7 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
     final reel = CourtReel(
       id: 'local-${DateTime.now().microsecondsSinceEpoch}',
       playerName: 'You',
+      gender: CourtReelGender.female,
       createdAtLabel: _formatNow(),
       caption: draft.mood,
       backdropAsset: CourtlyMediaAssets.postImages.first,
@@ -115,7 +125,7 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
       likes: 0,
       shares: 0,
       isLiked: false,
-      isFollowed: true,
+      isFollowed: false,
       comments: const [],
     );
 
@@ -129,27 +139,23 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
   }
 
   Future<void> _openComments(CourtReel reel) async {
-    final updatedComments = await Navigator.of(context)
-        .push<List<CourtReelComment>>(
-          CupertinoPageRoute<List<CourtReelComment>>(
-            builder: (_) => CourtReelCommentsPage(
-              reel: reel,
-              onPublish: () {
-                unawaited(_openComposer());
-              },
-            ),
-          ),
-        );
-
-    if (updatedComments == null || !mounted) {
-      return;
-    }
-
-    final index = _reels.indexWhere((entry) => entry.id == reel.id);
-    if (index == -1) {
-      return;
-    }
-    _replaceReelAt(index, _reels[index].copyWith(comments: updatedComments));
+    await showCupertinoModalPopup<void>(
+      context: context,
+      barrierColor: CupertinoColors.black.withValues(alpha: 0.48),
+      builder: (_) => CourtReelCommentsSheet(
+        reel: reel,
+        onCommentsChanged: (comments) {
+          if (!mounted) {
+            return;
+          }
+          final index = _reels.indexWhere((entry) => entry.id == reel.id);
+          if (index == -1) {
+            return;
+          }
+          _replaceReelAt(index, _reels[index].copyWith(comments: comments));
+        },
+      ),
+    );
   }
 
   Future<void> _openModeration(CourtReel reel) async {
@@ -234,7 +240,10 @@ class CourtReelStage extends StatelessWidget {
   const CourtReelStage({
     required this.reel,
     required this.soundOn,
+    required this.isActive,
+    required this.isPlaying,
     required this.onSoundToggle,
+    required this.onVideoToggle,
     required this.onPublish,
     required this.onLike,
     required this.onFollow,
@@ -246,7 +255,10 @@ class CourtReelStage extends StatelessWidget {
 
   final CourtReel reel;
   final bool soundOn;
+  final bool isActive;
+  final bool isPlaying;
   final VoidCallback onSoundToggle;
+  final VoidCallback onVideoToggle;
   final VoidCallback onPublish;
   final VoidCallback onLike;
   final VoidCallback onFollow;
@@ -261,10 +273,15 @@ class CourtReelStage extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _ReelVideoBackdrop(
-          videoPath: reel.videoAsset,
-          fallbackAsset: reel.backdropAsset,
-          soundOn: soundOn,
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onVideoToggle,
+          child: _ReelVideoBackdrop(
+            videoPath: reel.videoAsset,
+            fallbackAsset: reel.backdropAsset,
+            soundOn: soundOn,
+            isPlaying: isActive && isPlaying,
+          ),
         ),
         const DecoratedBox(
           decoration: BoxDecoration(
@@ -300,6 +317,25 @@ class CourtReelStage extends StatelessWidget {
             onShare: onShare,
           ),
         ),
+        if (isActive && !isPlaying)
+          Center(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: CupertinoColors.black.withValues(alpha: 0.3),
+                  shape: BoxShape.circle,
+                ),
+                child: const SizedBox.square(
+                  dimension: 78,
+                  child: Icon(
+                    CupertinoIcons.play_fill,
+                    color: CupertinoColors.white,
+                    size: 38,
+                  ),
+                ),
+              ),
+            ),
+          ),
         Positioned(
           left: 22,
           right: 22,
@@ -316,11 +352,13 @@ class _ReelVideoBackdrop extends StatefulWidget {
     required this.videoPath,
     required this.fallbackAsset,
     required this.soundOn,
+    required this.isPlaying,
   });
 
   final String videoPath;
   final String fallbackAsset;
   final bool soundOn;
+  final bool isPlaying;
 
   @override
   State<_ReelVideoBackdrop> createState() => _ReelVideoBackdropState();
@@ -348,8 +386,10 @@ class _ReelVideoBackdropState extends State<_ReelVideoBackdrop> {
       return;
     }
 
-    if (oldWidget.soundOn != widget.soundOn) {
+    if (oldWidget.soundOn != widget.soundOn ||
+        oldWidget.isPlaying != widget.isPlaying) {
       unawaited(_controller.setVolume(widget.soundOn ? 1 : 0));
+      _syncPlayback();
     }
   }
 
@@ -398,7 +438,9 @@ class _ReelVideoBackdropState extends State<_ReelVideoBackdrop> {
       }
       await _controller.setLooping(true);
       await _controller.setVolume(widget.soundOn ? 1 : 0);
-      await _controller.play();
+      if (widget.isPlaying) {
+        await _controller.play();
+      }
       if (!mounted) {
         return;
       }
@@ -409,6 +451,18 @@ class _ReelVideoBackdropState extends State<_ReelVideoBackdrop> {
       }
       setState(() => _ready = false);
     }
+  }
+
+  void _syncPlayback() {
+    if (!_controller.value.isInitialized) {
+      return;
+    }
+
+    if (widget.isPlaying) {
+      unawaited(_controller.play());
+      return;
+    }
+    unawaited(_controller.pause());
   }
 }
 
@@ -496,14 +550,12 @@ class _ReelActionRail extends StatelessWidget {
         const SizedBox(height: 18),
         _RailIconButton(
           icon: CupertinoIcons.exclamationmark_square_fill,
-          label: _formatCount(reel.shares),
           onPressed: onModerate,
         ),
         const SizedBox(height: 18),
-        _RailImageButton(
-          assetPath: 'assets/images/Locker.png',
+        _LikeRailButton(
+          isLiked: reel.isLiked,
           label: _formatCount(reel.likes),
-          opacity: reel.isLiked ? 1 : 0.5,
           onPressed: onLike,
         ),
         const SizedBox(height: 18),
@@ -557,12 +609,10 @@ class _RailImageButton extends StatelessWidget {
     required this.assetPath,
     required this.onPressed,
     this.label,
-    this.opacity = 1,
   });
 
   final String assetPath;
   final String? label;
-  final double opacity;
   final VoidCallback onPressed;
 
   @override
@@ -570,14 +620,72 @@ class _RailImageButton extends StatelessWidget {
     return _RailShell(
       label: label,
       onPressed: onPressed,
-      child: Opacity(
-        opacity: opacity,
-        child: Image.asset(
-          assetPath,
-          width: 32,
-          height: 32,
-          fit: BoxFit.contain,
-        ),
+      child: Image.asset(assetPath, width: 32, height: 32, fit: BoxFit.contain),
+    );
+  }
+}
+
+class _LikeRailButton extends StatelessWidget {
+  const _LikeRailButton({
+    required this.isLiked,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final bool isLiked;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedScale(
+            scale: isLiked ? 1.08 : 1,
+            duration: const Duration(milliseconds: 170),
+            curve: Curves.easeOutBack,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 170),
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: isLiked
+                    ? const Color(0xFFFF2FD2).withValues(alpha: 0.22)
+                    : CupertinoColors.black.withValues(alpha: 0.24),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isLiked
+                      ? const Color(0xFFFF2FD2)
+                      : CupertinoColors.white.withValues(alpha: 0.76),
+                  width: 1.6,
+                ),
+              ),
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 150),
+                  transitionBuilder: (child, animation) {
+                    return ScaleTransition(scale: animation, child: child);
+                  },
+                  child: Icon(
+                    isLiked ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
+                    key: ValueKey<bool>(isLiked),
+                    color: isLiked
+                        ? const Color(0xFFFF2FD2)
+                        : CupertinoColors.white,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          _AnimatedRailCount(label: label),
+        ],
       ),
     );
   }
@@ -608,19 +716,45 @@ class _RailShell extends StatelessWidget {
           ),
           if (label != null) ...[
             const SizedBox(height: 4),
-            Text(
-              label!,
-              style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
-                color: CupertinoColors.white,
-                fontSize: 12,
-                height: 1,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0,
-                decoration: TextDecoration.none,
-              ),
-            ),
+            _AnimatedRailCount(label: label!),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _AnimatedRailCount extends StatelessWidget {
+  const _AnimatedRailCount({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 190),
+      transitionBuilder: (child, animation) {
+        final slide = Tween<Offset>(
+          begin: const Offset(0, 0.36),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
+
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(position: slide, child: child),
+        );
+      },
+      child: Text(
+        label,
+        key: ValueKey<String>(label),
+        style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
+          color: CupertinoColors.white,
+          fontSize: 12,
+          height: 1,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+          decoration: TextDecoration.none,
+        ),
       ),
     );
   }
@@ -645,10 +779,15 @@ class _ReelCaptionBlock extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
-                children: const [
-                  _SignalPill(color: Color(0xFF8EC5FF), label: '25'),
-                  SizedBox(width: 6),
-                  _SignalPill(color: Color(0xFFFF70C8), label: '25'),
+                children: [
+                  _SignalPill(
+                    color: reel.gender == CourtReelGender.female
+                        ? const Color(0xFFFF70C8)
+                        : const Color(0xFF8EC5FF),
+                    label: reel.gender == CourtReelGender.female
+                        ? 'Female'
+                        : 'Male',
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -1041,21 +1180,21 @@ class _ReleaseMoodField extends StatelessWidget {
   }
 }
 
-class CourtReelCommentsPage extends StatefulWidget {
-  const CourtReelCommentsPage({
+class CourtReelCommentsSheet extends StatefulWidget {
+  const CourtReelCommentsSheet({
     required this.reel,
-    required this.onPublish,
+    required this.onCommentsChanged,
     super.key,
   });
 
   final CourtReel reel;
-  final VoidCallback onPublish;
+  final ValueChanged<List<CourtReelComment>> onCommentsChanged;
 
   @override
-  State<CourtReelCommentsPage> createState() => _CourtReelCommentsPageState();
+  State<CourtReelCommentsSheet> createState() => _CourtReelCommentsSheetState();
 }
 
-class _CourtReelCommentsPageState extends State<CourtReelCommentsPage> {
+class _CourtReelCommentsSheetState extends State<CourtReelCommentsSheet> {
   late List<CourtReelComment> _comments = List<CourtReelComment>.of(
     widget.reel.comments,
   );
@@ -1070,47 +1209,38 @@ class _CourtReelCommentsPageState extends State<CourtReelCommentsPage> {
   @override
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final height = MediaQuery.sizeOf(context).height;
+    final availableHeight =
+        (height - keyboardInset - courtlySafeTop(context, 8))
+            .clamp(320.0, 760.0)
+            .toDouble();
+    final sheetHeight = (availableHeight * 0.68).clamp(360.0, 560.0).toDouble();
 
-    return CupertinoPageScaffold(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            widget.reel.backdropAsset,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: keyboardInset),
+        child: SizedBox(
+          width: double.infinity,
+          height: sheetHeight,
+          child: Stack(
+            children: [
+              _CommentsPanel(
+                comments: _comments,
+                controller: _commentController,
+                onSend: _sendComment,
+              ),
+              Positioned(
+                top: 12,
+                right: 14,
+                child: _RoundIconButton(
+                  icon: CupertinoIcons.xmark,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ],
           ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: CupertinoColors.black.withValues(alpha: 0.58),
-            ),
-          ),
-          Positioned(
-            top: courtlySafeTop(context, 8),
-            left: 22,
-            right: 20,
-            child: _CourtReelsTopBar(onPublish: widget.onPublish),
-          ),
-          Positioned(
-            left: 14,
-            top: courtlySafeTop(context, 62),
-            child: _RoundIconButton(
-              icon: CupertinoIcons.xmark,
-              onPressed: _close,
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: keyboardInset,
-            height: MediaQuery.sizeOf(context).height * 0.56,
-            child: _CommentsPanel(
-              comments: _comments,
-              controller: _commentController,
-              onSend: _sendComment,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1121,22 +1251,21 @@ class _CourtReelCommentsPageState extends State<CourtReelCommentsPage> {
       return;
     }
 
+    final nextComments = [
+      ..._comments,
+      CourtReelComment(
+        author: 'You',
+        timeLabel: 'now',
+        message: message,
+        avatarAsset: CourtlyMediaAssets.womenHeads.first,
+      ),
+    ];
+
     setState(() {
-      _comments = [
-        ..._comments,
-        CourtReelComment(
-          author: 'You',
-          timeLabel: 'now',
-          message: message,
-          avatarAsset: CourtlyMediaAssets.womenHeads.first,
-        ),
-      ];
+      _comments = nextComments;
       _commentController.clear();
     });
-  }
-
-  void _close() {
-    Navigator.of(context).pop(_comments);
+    widget.onCommentsChanged(nextComments);
   }
 }
 

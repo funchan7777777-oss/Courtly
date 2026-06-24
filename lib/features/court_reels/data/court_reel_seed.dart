@@ -6,6 +6,7 @@ abstract final class CourtReelSeed {
     CourtReel(
       id: 'reel-forehand-reset',
       playerName: 'Hollis',
+      gender: CourtReelGender.female,
       createdAtLabel: '2025-09-23 12:24',
       caption:
           'Daily match rhythm, clean contact, and one fearless forehand reset.',
@@ -15,7 +16,7 @@ abstract final class CourtReelSeed {
       likes: 666,
       shares: 1245,
       isLiked: true,
-      isFollowed: true,
+      isFollowed: false,
       comments: [
         CourtReelComment(
           author: 'Evan Perkins',
@@ -34,6 +35,7 @@ abstract final class CourtReelSeed {
     CourtReel(
       id: 'reel-night-serve',
       playerName: 'Mina',
+      gender: CourtReelGender.female,
       createdAtLabel: '2025-09-23 15:08',
       caption:
           'Night serve work with a compact toss and steady landing balance.',
@@ -56,6 +58,7 @@ abstract final class CourtReelSeed {
     CourtReel(
       id: 'reel-baseline-run',
       playerName: 'Sofia',
+      gender: CourtReelGender.female,
       createdAtLabel: '2025-09-24 09:41',
       caption: 'Baseline run, short backswing, early split, steady rhythm.',
       backdropAsset: CourtlyMediaAssets.postImages[2],
@@ -64,7 +67,7 @@ abstract final class CourtReelSeed {
       likes: 529,
       shares: 999,
       isLiked: false,
-      isFollowed: true,
+      isFollowed: false,
       comments: [
         CourtReelComment(
           author: 'Grace Liu',
@@ -77,6 +80,7 @@ abstract final class CourtReelSeed {
     CourtReel(
       id: 'reel-volley-touch',
       playerName: 'Noah',
+      gender: CourtReelGender.male,
       createdAtLabel: '2025-09-24 18:30',
       caption: 'Soft hands at the net and a calm finish through the volley.',
       backdropAsset: CourtlyMediaAssets.postImages[3],
@@ -98,6 +102,7 @@ abstract final class CourtReelSeed {
     CourtReel(
       id: 'reel-lob-pattern',
       playerName: 'Iris',
+      gender: CourtReelGender.female,
       createdAtLabel: '2025-09-25 07:16',
       caption: 'A high lob pattern to reset pressure and win court position.',
       backdropAsset: CourtlyMediaAssets.postImages[4],
@@ -106,7 +111,7 @@ abstract final class CourtReelSeed {
       likes: 744,
       shares: 834,
       isLiked: true,
-      isFollowed: true,
+      isFollowed: false,
       comments: [
         CourtReelComment(
           author: 'Miles Young',
@@ -119,6 +124,7 @@ abstract final class CourtReelSeed {
     CourtReel(
       id: 'reel-spin-step',
       playerName: 'Leo',
+      gender: CourtReelGender.male,
       createdAtLabel: '2025-09-25 10:28',
       caption: 'Heavy spin, quick feet, and a cleaner finish on every rally.',
       backdropAsset: CourtlyMediaAssets.postImages[5],
@@ -127,7 +133,7 @@ abstract final class CourtReelSeed {
       likes: 216,
       shares: 330,
       isLiked: false,
-      isFollowed: true,
+      isFollowed: false,
       comments: [
         CourtReelComment(
           author: 'Rina Holt',
@@ -140,6 +146,7 @@ abstract final class CourtReelSeed {
     CourtReel(
       id: 'reel-doubles-call',
       playerName: 'Arden',
+      gender: CourtReelGender.male,
       createdAtLabel: '2025-09-26 13:05',
       caption: 'Doubles call, early poach, and a clean hold at the net.',
       backdropAsset: CourtlyMediaAssets.postImages[6],
@@ -161,6 +168,7 @@ abstract final class CourtReelSeed {
     CourtReel(
       id: 'reel-drop-shot',
       playerName: 'Elena',
+      gender: CourtReelGender.female,
       createdAtLabel: '2025-09-26 17:44',
       caption: 'Drop shot practice with quieter hands and better disguise.',
       backdropAsset: CourtlyMediaAssets.postImages[7],
@@ -169,7 +177,7 @@ abstract final class CourtReelSeed {
       likes: 481,
       shares: 557,
       isLiked: false,
-      isFollowed: true,
+      isFollowed: false,
       comments: [
         CourtReelComment(
           author: 'Terry George',
@@ -182,6 +190,7 @@ abstract final class CourtReelSeed {
     CourtReel(
       id: 'reel-return-read',
       playerName: 'Kai',
+      gender: CourtReelGender.male,
       createdAtLabel: '2025-09-27 08:12',
       caption: 'Return read, one split step, and a brave first swing.',
       backdropAsset: CourtlyMediaAssets.postImages[8],
@@ -203,6 +212,7 @@ abstract final class CourtReelSeed {
     CourtReel(
       id: 'reel-court-card',
       playerName: 'Tessa',
+      gender: CourtReelGender.female,
       createdAtLabel: '2025-09-27 15:26',
       caption:
           'Court card shoot with purple light and one compact rally story.',
@@ -212,7 +222,7 @@ abstract final class CourtReelSeed {
       likes: 611,
       shares: 888,
       isLiked: true,
-      isFollowed: true,
+      isFollowed: false,
       comments: [
         CourtReelComment(
           author: 'Jon Bell',
@@ -225,6 +235,7 @@ abstract final class CourtReelSeed {
     CourtReel(
       id: 'reel-serve-wide',
       playerName: 'Owen',
+      gender: CourtReelGender.male,
       createdAtLabel: '2025-09-28 12:03',
       caption: 'Wide serve target, loose arm, and a confident first step.',
       backdropAsset: CourtlyMediaAssets.postImages[10],
@@ -233,7 +244,7 @@ abstract final class CourtReelSeed {
       likes: 278,
       shares: 319,
       isLiked: false,
-      isFollowed: true,
+      isFollowed: false,
       comments: [
         CourtReelComment(
           author: 'Avery Stone',
@@ -246,6 +257,7 @@ abstract final class CourtReelSeed {
     CourtReel(
       id: 'reel-match-point',
       playerName: 'Mara',
+      gender: CourtReelGender.female,
       createdAtLabel: '2025-09-28 19:18',
       caption: 'Match point focus, patient rally shape, and a clean close.',
       backdropAsset: CourtlyMediaAssets.postImages[11],
