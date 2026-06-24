@@ -1,11 +1,11 @@
-import 'package:courtly/features/first_rally/data/rally_asset_ledger.dart';
-import 'package:courtly/features/first_rally/presentation/pages/rally_profile_media_page.dart';
+import 'package:courtly/features/first_rally/domain/rally_entry_draft.dart';
+import 'package:courtly/features/first_rally/presentation/pages/rally_profile_detail_page.dart';
 import 'package:courtly/features/first_rally/presentation/pages/rally_signin_page.dart';
-import 'package:courtly/features/first_rally/presentation/widgets/rally_asset_button.dart';
 import 'package:courtly/features/first_rally/presentation/widgets/rally_back_button.dart';
 import 'package:courtly/features/first_rally/presentation/widgets/rally_backdrop_layer.dart';
 import 'package:courtly/features/first_rally/presentation/widgets/rally_entry_field.dart';
-import 'package:courtly/features/first_rally/presentation/widgets/rally_terms_note.dart';
+import 'package:courtly/features/first_rally/presentation/widgets/rally_glass_action_button.dart';
+import 'package:courtly/features/first_rally/presentation/widgets/rally_notice_dialog.dart';
 import 'package:flutter/cupertino.dart';
 
 class RallyRegisterCredentialsPage extends StatefulWidget {
@@ -55,7 +55,7 @@ class _RallyRegisterCredentialsPageState
                       controller: _servePhraseController,
                       isPrivatePhrase: true,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     _RegisterBridgeLine(
                       onPressed: () {
                         Navigator.of(context).pushReplacement(
@@ -66,28 +66,45 @@ class _RallyRegisterCredentialsPageState
                       },
                     ),
                     const SizedBox(height: 24),
-                    RallyAssetButton(
-                      assetPath: RallyAssetLedger.continueSetupButton,
-                      semanticLabel: 'Next',
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          CupertinoPageRoute<void>(
-                            builder: (_) => const RallyProfileMediaPage(),
-                          ),
-                        );
-                      },
+                    RallyGlassActionButton(
+                      label: 'Sign up',
+                      onPressed: _continueToProfile,
                     ),
                   ],
                 ),
               ),
             ),
-            const Positioned(
-              left: 0,
-              right: 0,
-              bottom: 24,
-              child: RallyTermsNote(),
-            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _continueToProfile() async {
+    final draft = RallyCredentialDraft(
+      courtsideAddress: _addressController.text,
+      privateServePhrase: _servePhraseController.text,
+    );
+
+    if (!draft.hasUsableShape) {
+      await RallyNoticeDialog.show(
+        context,
+        title: 'Complete your signup',
+        message:
+            'Use a valid email address and a password of at least 6 characters.',
+      );
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (_) => RallyProfileDetailPage(
+          entryMethod: 'local',
+          pendingCredentialDraft: draft,
+          actionLabel: 'Next',
         ),
       ),
     );
@@ -102,11 +119,12 @@ class _RegisterBridgeLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = CupertinoTheme.of(context).textTheme.textStyle.copyWith(
-      color: CupertinoColors.white.withValues(alpha: 0.78),
-      fontSize: 11,
-      fontWeight: FontWeight.w500,
-      letterSpacing: 0,
-    );
+          color: CupertinoColors.white.withValues(alpha: 0.78),
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0,
+          decoration: TextDecoration.none,
+        );
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -122,7 +140,7 @@ class _RegisterBridgeLine extends StatelessWidget {
               color: CupertinoColors.white,
               decoration: TextDecoration.underline,
               decorationColor: CupertinoColors.white,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),

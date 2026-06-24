@@ -1,12 +1,15 @@
+import 'dart:async';
+
 import 'package:courtly/atelier/navigation/courtly_tabs.dart';
-import 'package:courtly/features/first_rally/data/rally_asset_ledger.dart';
+import 'package:courtly/features/first_rally/data/rally_session_vault.dart';
 import 'package:courtly/features/first_rally/domain/rally_entry_draft.dart';
 import 'package:courtly/features/first_rally/presentation/pages/rally_register_credentials_page.dart';
-import 'package:courtly/features/first_rally/presentation/widgets/rally_asset_button.dart';
 import 'package:courtly/features/first_rally/presentation/widgets/rally_back_button.dart';
 import 'package:courtly/features/first_rally/presentation/widgets/rally_backdrop_layer.dart';
 import 'package:courtly/features/first_rally/presentation/widgets/rally_entry_field.dart';
-import 'package:courtly/features/first_rally/presentation/widgets/rally_terms_note.dart';
+import 'package:courtly/features/first_rally/presentation/widgets/rally_glass_action_button.dart';
+import 'package:courtly/features/first_rally/presentation/widgets/rally_loading_layers.dart';
+import 'package:courtly/features/first_rally/presentation/widgets/rally_notice_dialog.dart';
 import 'package:flutter/cupertino.dart';
 
 class RallySigninPage extends StatefulWidget {
@@ -17,8 +20,10 @@ class RallySigninPage extends StatefulWidget {
 }
 
 class _RallySigninPageState extends State<RallySigninPage> {
+  final RallySessionVault _sessionVault = const RallySessionVault();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _servePhraseController = TextEditingController();
+  bool _isOpeningCourt = false;
 
   @override
   void dispose() {
@@ -54,9 +59,9 @@ class _RallySigninPageState extends State<RallySigninPage> {
                       controller: _servePhraseController,
                       isPrivatePhrase: true,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     _AccountBridgeLine(
-                      prompt: 'Don\'t have an account yet?',
+                      prompt: 'No court card yet?',
                       actionLabel: 'Sign up',
                       onPressed: () {
                         Navigator.of(context).pushReplacement(
@@ -68,62 +73,76 @@ class _RallySigninPageState extends State<RallySigninPage> {
                       },
                     ),
                     const SizedBox(height: 24),
-                    RallyAssetButton(
-                      assetPath: RallyAssetLedger.submitLoginButton,
-                      semanticLabel: 'Log in',
+                    RallyGlassActionButton(
+                      label: 'Start',
+                      isBusy: _isOpeningCourt,
                       onPressed: _tryEnterCourtly,
                     ),
                   ],
                 ),
               ),
             ),
-            const Positioned(
-              left: 0,
-              right: 0,
-              bottom: 24,
-              child: RallyTermsNote(),
-            ),
+            if (_isOpeningCourt)
+              const RallyEntryLoadingCurtain(label: 'Opening your court circle'),
           ],
         ),
       ),
     );
   }
 
-  void _tryEnterCourtly() {
+  Future<void> _tryEnterCourtly() async {
     final draft = RallyCredentialDraft(
       courtsideAddress: _addressController.text,
       privateServePhrase: _servePhraseController.text,
     );
 
     if (!draft.hasUsableShape) {
-      _showEntryNotice(
-        title: 'Check your details',
+      await RallyNoticeDialog.show(
+        context,
+        title: 'Check your login',
         message:
             'Use a valid email address and a password of at least 6 characters.',
       );
       return;
     }
 
-    Navigator.of(context).pushReplacement(
-      CupertinoPageRoute<void>(builder: (_) => const CourtlyTabs()),
-    );
-  }
+    final hasLocalCredential = await _sessionVault.hasLocalCredential();
+    if (!hasLocalCredential) {
+      if (!mounted) {
+        return;
+      }
+      await RallyNoticeDialog.show(
+        context,
+        title: 'No saved court card',
+        message:
+            'Create a Courtly account first, then your login will stay on this device.',
+      );
+      return;
+    }
 
-  void _showEntryNotice({required String title, required String message}) {
-    showCupertinoDialog<void>(
-      context: context,
-      builder: (context) {
-        return CupertinoAlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
+    final credentialMatches = await _sessionVault.credentialMatches(draft);
+    if (!credentialMatches) {
+      if (!mounted) {
+        return;
+      }
+      await RallyNoticeDialog.show(
+        context,
+        title: 'Login details do not match',
+        message: 'Check the email and password you used when creating Courtly.',
+      );
+      return;
+    }
+
+    setState(() => _isOpeningCourt = true);
+    await _sessionVault.reactivateLocalSession();
+    await Future<void>.delayed(const Duration(milliseconds: 3400));
+
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pushAndRemoveUntil(
+      CupertinoPageRoute<void>(builder: (_) => const CourtlyTabs()),
+      (_) => false,
     );
   }
 }
@@ -142,11 +161,12 @@ class _AccountBridgeLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = CupertinoTheme.of(context).textTheme.textStyle.copyWith(
-      color: CupertinoColors.white.withValues(alpha: 0.78),
-      fontSize: 11,
-      fontWeight: FontWeight.w500,
-      letterSpacing: 0,
-    );
+          color: CupertinoColors.white.withValues(alpha: 0.78),
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0,
+          decoration: TextDecoration.none,
+        );
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -162,7 +182,7 @@ class _AccountBridgeLine extends StatelessWidget {
               color: CupertinoColors.white,
               decoration: TextDecoration.underline,
               decorationColor: CupertinoColors.white,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),

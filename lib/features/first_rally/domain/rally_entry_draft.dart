@@ -15,16 +15,18 @@ class RallyCredentialDraft {
 
 class RallyProfileDraft {
   const RallyProfileDraft({
-    required this.nicknameSignal,
+    required this.displayNameSignal,
     required this.countryCircuit,
     required this.personalCourtline,
-    required this.birthdateMarker,
-    required this.playStyleKey,
+    this.birthdateMarker,
+    this.playStyleKey,
+    this.avatarImagePath,
   });
 
-  final String nicknameSignal;
+  final String displayNameSignal;
   final String countryCircuit;
   final String personalCourtline;
-  final DateTime birthdateMarker;
-  final String playStyleKey;
+  final DateTime? birthdateMarker;
+  final String? playStyleKey;
+  final String? avatarImagePath;
 }
