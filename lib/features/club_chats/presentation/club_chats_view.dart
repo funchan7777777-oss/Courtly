@@ -190,6 +190,8 @@ class _ClubChatsViewState extends State<ClubChatsView> {
                       child: _ConversationTile(
                         conversation: conversation,
                         onPressed: () => unawaited(_openChat(conversation)),
+                        onOpenProfile: () =>
+                            _openConversationProfile(conversation),
                         onLongPress: () =>
                             unawaited(_askDeleteConversation(conversation)),
                       ),
@@ -320,6 +322,28 @@ class _ClubChatsViewState extends State<ClubChatsView> {
       next[index] = updated;
       _conversations = next;
     });
+  }
+
+  void _openConversationProfile(ClubConversation conversation) {
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (_) => CourtlyUserProfilePage(
+          profile: CourtlyUserDirectory.fromIdentity(
+            name: conversation.playerName,
+            avatarAsset: conversation.avatarAsset,
+            heroAsset: conversation.heroAsset,
+          ),
+          onOpenChat: (profile) {
+            unawaited(openClubChatForProfile(context, profile));
+          },
+          onModerated: (result) {
+            if (result.action == CourtlyModerationAction.block) {
+              unawaited(_loadLocalState());
+            }
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _askDeleteConversation(ClubConversation conversation) async {
@@ -580,11 +604,13 @@ class _ConversationTile extends StatelessWidget {
   const _ConversationTile({
     required this.conversation,
     required this.onPressed,
+    required this.onOpenProfile,
     required this.onLongPress,
   });
 
   final ClubConversation conversation;
   final VoidCallback onPressed;
+  final VoidCallback onOpenProfile;
   final VoidCallback onLongPress;
 
   @override
@@ -606,10 +632,15 @@ class _ConversationTile extends StatelessWidget {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  _ClubAvatar(
-                    assetPath: conversation.avatarAsset,
-                    size: 54,
-                    showGlow: conversation.online,
+                  CupertinoButton(
+                    minimumSize: Size.zero,
+                    padding: EdgeInsets.zero,
+                    onPressed: onOpenProfile,
+                    child: _ClubAvatar(
+                      assetPath: conversation.avatarAsset,
+                      size: 54,
+                      showGlow: conversation.online,
+                    ),
                   ),
                   if (conversation.online)
                     Positioned(
@@ -636,13 +667,21 @@ class _ConversationTile extends StatelessWidget {
                     Row(
                       children: [
                         Flexible(
-                          child: Text(
-                            conversation.playerName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: _clubTextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
+                          child: CupertinoButton(
+                            minimumSize: Size.zero,
+                            padding: EdgeInsets.zero,
+                            onPressed: onOpenProfile,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                conversation.playerName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _clubTextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
                             ),
                           ),
                         ),
