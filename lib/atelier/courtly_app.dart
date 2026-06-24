@@ -11,6 +11,17 @@ class CourtlyApp extends StatelessWidget {
       title: 'Courtly',
       debugShowCheckedModeBanner: false,
       theme: CourtlyCupertinoTheme.daybook,
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            padding: EdgeInsets.zero,
+            viewPadding: EdgeInsets.zero,
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: const FirstRallyGate(),
     );
   }
