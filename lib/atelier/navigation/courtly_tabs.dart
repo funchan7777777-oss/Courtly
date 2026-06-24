@@ -1,7 +1,7 @@
-import 'package:courtly/atelier/theme/courtly_ink_palette.dart';
+import 'package:courtly/features/club_chats/presentation/club_chats_view.dart';
 import 'package:courtly/features/court_reels/presentation/court_reels_home_view.dart';
+import 'package:courtly/features/my_court/presentation/my_court_view.dart';
 import 'package:courtly/features/post_sharing/presentation/post_sharing_home_view.dart';
-import 'package:courtly/features/wardrobe_notes/presentation/wardrobe_brief_view.dart';
 import 'package:flutter/cupertino.dart';
 
 class CourtlyTabs extends StatefulWidget {
@@ -17,8 +17,8 @@ class _CourtlyTabsState extends State<CourtlyTabs> {
   static const List<Widget> _courtDecks = [
     CourtReelsHomeView(),
     PostSharingHomeView(),
-    WardrobeBriefView(),
-    _ClubhouseLandingView(),
+    ClubChatsView(),
+    MyCourtView(),
   ];
 
   static const List<_CourtlyTabSpec> _tabSpecs = [
@@ -33,14 +33,14 @@ class _CourtlyTabsState extends State<CourtlyTabs> {
       label: 'Session',
     ),
     _CourtlyTabSpec(
-      activeAsset: 'assets/images/Rival.png',
+      activeAsset: 'assets/images/Clubhouse.png',
       inactiveAsset: 'assets/images/Teammate.png',
-      label: 'Rival',
+      label: 'Chats',
     ),
     _CourtlyTabSpec(
       activeAsset: 'assets/images/Warmup.png',
-      inactiveAsset: 'assets/images/Clubhouse.png',
-      label: 'Warmup',
+      inactiveAsset: 'assets/images/Rival.png',
+      label: 'My Court',
     ),
   ];
 
@@ -163,47 +163,4 @@ class _CourtlyTabSpec {
   final String activeAsset;
   final String inactiveAsset;
   final String label;
-}
-
-class _ClubhouseLandingView extends StatelessWidget {
-  const _ClubhouseLandingView();
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      backgroundColor: CourtlyInkPalette.porcelain,
-      child: CustomScrollView(
-        slivers: [
-          const CupertinoSliverNavigationBar(largeTitle: Text('Clubhouse')),
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: CupertinoColors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: CourtlyInkPalette.hairline),
-                ),
-                child: Center(
-                  child: Text(
-                    'Clubhouse notes are ready for your next court circle.',
-                    textAlign: TextAlign.center,
-                    style: CupertinoTheme.of(context).textTheme.textStyle
-                        .copyWith(
-                          color: CourtlyInkPalette.midnightSeal,
-                          fontSize: 16,
-                          height: 1.35,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0,
-                        ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

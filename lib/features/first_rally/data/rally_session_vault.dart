@@ -202,4 +202,26 @@ class RallySessionVault {
       entryMethod: 'apple',
     );
   }
+
+  Future<void> deactivateActiveSession() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(_activeEntryKey, false);
+  }
+
+  Future<void> deleteLocalAccount() async {
+    final preferences = await SharedPreferences.getInstance();
+    await Future.wait([
+      preferences.remove(_activeEntryKey),
+      preferences.remove(_credentialAddressKey),
+      preferences.remove(_credentialPhraseKey),
+      preferences.remove(_displayNameKey),
+      preferences.remove(_countryCircuitKey),
+      preferences.remove(_personalCourtlineKey),
+      preferences.remove(_entryMethodKey),
+      preferences.remove(_avatarImagePathKey),
+      preferences.remove(_appleIdentityNameKey),
+      preferences.remove(_birthdateMarkerKey),
+      preferences.remove(_playStyleKey),
+    ]);
+  }
 }
