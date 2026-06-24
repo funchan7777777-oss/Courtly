@@ -135,4 +135,34 @@ class RallySessionVault {
     await preferences.setBool(_activeEntryKey, true);
     await preferences.setString(_entryMethodKey, 'local');
   }
+
+  Future<void> activateCredentialEntry(RallyCredentialDraft draft) async {
+    final preferences = await SharedPreferences.getInstance();
+    await rememberCredentialDraft(draft);
+
+    final existingDisplayName = preferences.getString(_displayNameKey);
+    if (existingDisplayName == null || existingDisplayName.trim().isEmpty) {
+      final addressName = draft.courtsideAddress.split('@').first.trim();
+      await preferences.setString(
+        _displayNameKey,
+        addressName.isEmpty ? 'Courtly Player' : addressName,
+      );
+    }
+
+    final existingCircuit = preferences.getString(_countryCircuitKey);
+    if (existingCircuit == null || existingCircuit.trim().isEmpty) {
+      await preferences.setString(_countryCircuitKey, 'Courtly Circuit');
+    }
+
+    final existingCourtline = preferences.getString(_personalCourtlineKey);
+    if (existingCourtline == null || existingCourtline.trim().isEmpty) {
+      await preferences.setString(
+        _personalCourtlineKey,
+        'Ready for the next friendly match.',
+      );
+    }
+
+    await preferences.setBool(_activeEntryKey, true);
+    await preferences.setString(_entryMethodKey, 'local');
+  }
 }

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:courtly/atelier/navigation/courtly_tabs.dart';
 import 'package:courtly/features/first_rally/data/rally_session_vault.dart';
 import 'package:courtly/features/first_rally/domain/rally_entry_draft.dart';
@@ -108,35 +106,8 @@ class _RallySigninPageState extends State<RallySigninPage> {
       return;
     }
 
-    final hasLocalCredential = await _sessionVault.hasLocalCredential();
-    if (!hasLocalCredential) {
-      if (!mounted) {
-        return;
-      }
-      await RallyNoticeDialog.show(
-        context,
-        title: 'No saved court card',
-        message:
-            'Create a Courtly account first, then your login will stay on this device.',
-      );
-      return;
-    }
-
-    final credentialMatches = await _sessionVault.credentialMatches(draft);
-    if (!credentialMatches) {
-      if (!mounted) {
-        return;
-      }
-      await RallyNoticeDialog.show(
-        context,
-        title: 'Login details do not match',
-        message: 'Check the email and password you used when creating Courtly.',
-      );
-      return;
-    }
-
     setState(() => _isOpeningCourt = true);
-    await _sessionVault.reactivateLocalSession();
+    await _sessionVault.activateCredentialEntry(draft);
     await Future<void>.delayed(const Duration(milliseconds: 3400));
 
     if (!mounted) {
