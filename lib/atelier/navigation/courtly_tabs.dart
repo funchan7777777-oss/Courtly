@@ -33,13 +33,13 @@ class _CourtlyTabsState extends State<CourtlyTabs> {
       label: 'Session',
     ),
     _CourtlyTabSpec(
-      activeAsset: 'assets/images/Clubhouse.png',
+      activeAsset: 'assets/images/Rival.png',
       inactiveAsset: 'assets/images/Teammate.png',
       label: 'Chats',
     ),
     _CourtlyTabSpec(
       activeAsset: 'assets/images/Warmup.png',
-      inactiveAsset: 'assets/images/Rival.png',
+      inactiveAsset: 'assets/images/Clubhouse.png',
       label: 'My Court',
     ),
   ];
