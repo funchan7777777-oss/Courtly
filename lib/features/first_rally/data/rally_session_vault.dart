@@ -1,3 +1,4 @@
+import 'package:courtly/features/first_rally/data/rally_asset_ledger.dart';
 import 'package:courtly/features/first_rally/domain/rally_entry_draft.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -7,6 +8,8 @@ class RallyStoredSession {
     required this.countryCircuit,
     required this.personalCourtline,
     required this.entryMethod,
+    required this.birthdateMarker,
+    required this.playStyleKey,
     this.avatarImagePath,
   });
 
@@ -14,11 +17,12 @@ class RallyStoredSession {
   final String countryCircuit;
   final String personalCourtline;
   final String entryMethod;
+  final DateTime birthdateMarker;
+  final String playStyleKey;
   final String? avatarImagePath;
 }
 
 class RallySessionVault {
-  static const String _onboardingSettledKey = 'courtly_onboarding_settled';
   static const String _activeEntryKey = 'courtly_active_entry';
   static const String _credentialAddressKey = 'courtly_credential_address';
   static const String _credentialPhraseKey = 'courtly_credential_phrase';
@@ -28,18 +32,10 @@ class RallySessionVault {
   static const String _entryMethodKey = 'courtly_entry_method';
   static const String _avatarImagePathKey = 'courtly_avatar_image_path';
   static const String _appleIdentityNameKey = 'courtly_apple_identity_name';
+  static const String _birthdateMarkerKey = 'courtly_birthdate_marker';
+  static const String _playStyleKey = 'courtly_play_style_key';
 
   const RallySessionVault();
-
-  Future<bool> hasFinishedOnboarding() async {
-    final preferences = await SharedPreferences.getInstance();
-    return preferences.getBool(_onboardingSettledKey) ?? false;
-  }
-
-  Future<void> markOnboardingSettled() async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setBool(_onboardingSettledKey, true);
-  }
 
   Future<RallyStoredSession?> readActiveSession() async {
     final preferences = await SharedPreferences.getInstance();
@@ -55,6 +51,10 @@ class RallySessionVault {
       countryCircuit: preferences.getString(_countryCircuitKey) ?? '',
       personalCourtline: preferences.getString(_personalCourtlineKey) ?? '',
       entryMethod: preferences.getString(_entryMethodKey) ?? 'local',
+      birthdateMarker:
+          DateTime.tryParse(preferences.getString(_birthdateMarkerKey) ?? '') ??
+          DateTime(2000, 1, 1),
+      playStyleKey: preferences.getString(_playStyleKey) ?? 'unspecified',
       avatarImagePath: preferences.getString(_avatarImagePathKey),
     );
   }
@@ -122,6 +122,11 @@ class RallySessionVault {
       _personalCourtlineKey,
       profileDraft.personalCourtline.trim(),
     );
+    await preferences.setString(
+      _birthdateMarkerKey,
+      profileDraft.birthdateMarker.toIso8601String(),
+    );
+    await preferences.setString(_playStyleKey, profileDraft.playStyleKey);
     await preferences.setString(_entryMethodKey, entryMethod);
 
     final avatarPath = profileDraft.avatarImagePath;
@@ -162,7 +167,39 @@ class RallySessionVault {
       );
     }
 
+    await preferences.setString(
+      _birthdateMarkerKey,
+      (DateTime.tryParse(preferences.getString(_birthdateMarkerKey) ?? '') ??
+              DateTime(2000, 1, 1))
+          .toIso8601String(),
+    );
+    await preferences.setString(
+      _playStyleKey,
+      preferences.getString(_playStyleKey) ?? 'unspecified',
+    );
+    await preferences.setString(
+      _avatarImagePathKey,
+      preferences.getString(_avatarImagePathKey) ??
+          RallyAssetLedger.spotlightMark,
+    );
+
     await preferences.setBool(_activeEntryKey, true);
     await preferences.setString(_entryMethodKey, 'local');
+  }
+
+  Future<void> activateAppleEntry({required String displayNameSignal}) async {
+    await activateProfile(
+      profileDraft: RallyProfileDraft(
+        displayNameSignal: displayNameSignal.trim().isEmpty
+            ? 'Courtly Player'
+            : displayNameSignal.trim(),
+        countryCircuit: 'Courtly Circuit',
+        personalCourtline: 'Ready for the next friendly match.',
+        birthdateMarker: DateTime(2000, 1, 1),
+        playStyleKey: 'unspecified',
+        avatarImagePath: RallyAssetLedger.spotlightMark,
+      ),
+      entryMethod: 'apple',
+    );
   }
 }

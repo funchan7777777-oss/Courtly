@@ -12,4 +12,7 @@ abstract final class RallyAssetLedger {
 
   static const String hiddenServeGlyph = 'assets/images/Topspin.png';
   static const String visibleServeGlyph = 'assets/images/Kickserve.png';
+
+  static const String invitePlayerCard = 'assets/images/Invite.png';
+  static const String storyPlayerCard = 'assets/images/Story.png';
 }

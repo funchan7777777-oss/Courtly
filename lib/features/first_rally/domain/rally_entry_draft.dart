@@ -18,15 +18,15 @@ class RallyProfileDraft {
     required this.displayNameSignal,
     required this.countryCircuit,
     required this.personalCourtline,
-    this.birthdateMarker,
-    this.playStyleKey,
+    required this.birthdateMarker,
+    required this.playStyleKey,
     this.avatarImagePath,
   });
 
   final String displayNameSignal;
   final String countryCircuit;
   final String personalCourtline;
-  final DateTime? birthdateMarker;
-  final String? playStyleKey;
+  final DateTime birthdateMarker;
+  final String playStyleKey;
   final String? avatarImagePath;
 }

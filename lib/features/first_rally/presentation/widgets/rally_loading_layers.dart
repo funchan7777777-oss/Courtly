@@ -30,7 +30,8 @@ class _RallyOpeningLoadState extends State<RallyOpeningLoad>
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return Align(
+      alignment: const Alignment(0, 0.28),
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {

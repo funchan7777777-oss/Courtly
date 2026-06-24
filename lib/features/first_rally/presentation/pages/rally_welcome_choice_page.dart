@@ -1,6 +1,6 @@
+import 'package:courtly/atelier/navigation/courtly_tabs.dart';
 import 'package:courtly/features/first_rally/data/rally_asset_ledger.dart';
 import 'package:courtly/features/first_rally/data/rally_session_vault.dart';
-import 'package:courtly/features/first_rally/presentation/pages/rally_profile_detail_page.dart';
 import 'package:courtly/features/first_rally/presentation/pages/rally_signin_page.dart';
 import 'package:courtly/features/first_rally/presentation/widgets/rally_agreement_panel.dart';
 import 'package:courtly/features/first_rally/presentation/widgets/rally_asset_button.dart';
@@ -123,18 +123,14 @@ class _RallyWelcomeChoicePageState extends State<RallyWelcomeChoicePage> {
           : storedAppleName ?? fallbackName ?? 'Courtly Player';
 
       await _sessionVault.rememberAppleIdentityName(preferredName);
+      await _sessionVault.activateAppleEntry(displayNameSignal: preferredName);
 
       if (!mounted) {
         return;
       }
-      Navigator.of(context).push(
-        CupertinoPageRoute<void>(
-          builder: (_) => RallyProfileDetailPage(
-            entryMethod: 'apple',
-            initialDisplayName: preferredName,
-            actionLabel: 'Enter',
-          ),
-        ),
+      Navigator.of(context).pushAndRemoveUntil(
+        CupertinoPageRoute<void>(builder: (_) => const CourtlyTabs()),
+        (_) => false,
       );
     } on SignInWithAppleAuthorizationException catch (error) {
       if (!mounted || error.code == AuthorizationErrorCode.canceled) {

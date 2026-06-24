@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:courtly/atelier/navigation/courtly_tabs.dart';
 import 'package:courtly/features/first_rally/data/rally_session_vault.dart';
-import 'package:courtly/features/first_rally/presentation/pages/rally_onboarding_run_page.dart';
 import 'package:courtly/features/first_rally/presentation/pages/rally_welcome_choice_page.dart';
 import 'package:courtly/features/first_rally/presentation/widgets/rally_backdrop_layer.dart';
 import 'package:courtly/features/first_rally/presentation/widgets/rally_loading_layers.dart';
@@ -26,11 +25,9 @@ class _FirstRallyGateState extends State<FirstRallyGate> {
 
   Future<void> _routeAfterOpeningLoad() async {
     final sessionRead = _sessionVault.readActiveSession();
-    final onboardingRead = _sessionVault.hasFinishedOnboarding();
 
     await Future<void>.delayed(const Duration(milliseconds: 1450));
     final activeSession = await sessionRead;
-    final onboardingSettled = await onboardingRead;
 
     if (!mounted) {
       return;
@@ -38,9 +35,7 @@ class _FirstRallyGateState extends State<FirstRallyGate> {
 
     final Widget nextPage = activeSession != null
         ? const CourtlyTabs()
-        : onboardingSettled
-        ? const RallyWelcomeChoicePage()
-        : const RallyOnboardingRunPage();
+        : const RallyWelcomeChoicePage();
 
     Navigator.of(
       context,
