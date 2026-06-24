@@ -1,5 +1,5 @@
-import 'package:courtly/atelier/navigation/courtly_tabs.dart';
 import 'package:courtly/atelier/theme/courtly_cupertino_theme.dart';
+import 'package:courtly/features/first_rally/presentation/first_rally_gate.dart';
 import 'package:flutter/cupertino.dart';
 
 class CourtlyApp extends StatelessWidget {
@@ -11,7 +11,7 @@ class CourtlyApp extends StatelessWidget {
       title: 'Courtly',
       debugShowCheckedModeBanner: false,
       theme: CourtlyCupertinoTheme.daybook,
-      home: const CourtlyTabs(),
+      home: const FirstRallyGate(),
     );
   }
 }

@@ -1,5 +1,5 @@
 name: courtly
-description: "A private iOS companion for polished invitations, guest notes, and occasion readiness."
+description: 'A courtside social companion for private match circles, guest notes, and polished meetups.'
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -18,3 +18,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/
