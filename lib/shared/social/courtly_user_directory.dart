@@ -50,9 +50,12 @@ abstract final class CourtlyUserDirectory {
     String? heroAsset,
   }) {
     final female = _femaleNames.contains(name);
-    final heads = female ? CourtlyMediaAssets.womenHeads : CourtlyMediaAssets.menHeads;
+    final heads = female
+        ? CourtlyMediaAssets.womenHeads
+        : CourtlyMediaAssets.menHeads;
     final safeHead = heads[index % heads.length];
-    final safeHero = CourtlyMediaAssets.postImages[index % CourtlyMediaAssets.postImages.length];
+    final safeHero = CourtlyMediaAssets
+        .postImages[index % CourtlyMediaAssets.postImages.length];
 
     return CourtlyUserProfile(
       id: idFromName(name),
@@ -64,11 +67,14 @@ abstract final class CourtlyUserDirectory {
       bio: _bios[index % _bios.length],
       videoAssets: [
         for (var offset = 0; offset < 6; offset++)
-          CourtlyMediaAssets.postImages[(index + offset) % CourtlyMediaAssets.postImages.length],
+          CourtlyMediaAssets.postImages[(index + offset) %
+              CourtlyMediaAssets.postImages.length],
       ],
       postAssets: [
-        CourtlyMediaAssets.postImages[index % CourtlyMediaAssets.postImages.length],
-        CourtlyMediaAssets.postImages[(index + 3) % CourtlyMediaAssets.postImages.length],
+        CourtlyMediaAssets.postImages[index %
+            CourtlyMediaAssets.postImages.length],
+        CourtlyMediaAssets.postImages[(index + 3) %
+            CourtlyMediaAssets.postImages.length],
       ],
     );
   }
@@ -126,4 +132,3 @@ abstract final class CourtlyUserDirectory {
     'Night tennis, warmup ladders, and a calm finish through every point.',
   ];
 }
-

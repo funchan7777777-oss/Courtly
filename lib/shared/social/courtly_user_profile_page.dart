@@ -218,7 +218,10 @@ class _ProfileIdentity extends StatelessWidget {
                 profile.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: _profileTextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+                style: _profileTextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
               const SizedBox(height: 5),
               Row(
@@ -293,7 +296,11 @@ class _ProfileFollowButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = following ? 'Following' : requested ? 'Pending' : 'Follow';
+    final label = following
+        ? 'Following'
+        : requested
+        ? 'Pending'
+        : 'Follow';
 
     return CupertinoButton(
       minimumSize: Size.zero,
@@ -307,7 +314,9 @@ class _ProfileFollowButton extends StatelessWidget {
               ? CupertinoColors.white.withValues(alpha: 0.2)
               : const Color(0xFFFF2DD2),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: CupertinoColors.white.withValues(alpha: 0.12)),
+          border: Border.all(
+            color: CupertinoColors.white.withValues(alpha: 0.12),
+          ),
           boxShadow: requested
               ? null
               : const [
@@ -321,9 +330,19 @@ class _ProfileFollowButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(CupertinoIcons.star_fill, color: CupertinoColors.white, size: 16),
+            const Icon(
+              CupertinoIcons.star_fill,
+              color: CupertinoColors.white,
+              size: 16,
+            ),
             const SizedBox(width: 6),
-            Text(label, style: _profileTextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+            Text(
+              label,
+              style: _profileTextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ],
         ),
       ),
@@ -349,7 +368,11 @@ class _ChatButton extends StatelessWidget {
           color: CupertinoColors.white,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: const Icon(CupertinoIcons.chat_bubble_2_fill, color: Color(0xFFFF2DD2), size: 22),
+        child: const Icon(
+          CupertinoIcons.chat_bubble_2_fill,
+          color: Color(0xFFFF2DD2),
+          size: 22,
+        ),
       ),
     );
   }
@@ -365,9 +388,17 @@ class _ProfileTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _ProfileTab(label: 'Videos', selected: selectedIndex == 0, onPressed: () => onChanged(0)),
+        _ProfileTab(
+          label: 'Videos',
+          selected: selectedIndex == 0,
+          onPressed: () => onChanged(0),
+        ),
         const SizedBox(width: 28),
-        _ProfileTab(label: 'Post', selected: selectedIndex == 1, onPressed: () => onChanged(1)),
+        _ProfileTab(
+          label: 'Post',
+          selected: selectedIndex == 1,
+          onPressed: () => onChanged(1),
+        ),
       ],
     );
   }
@@ -428,7 +459,11 @@ class _ProfileVideoGrid extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.asset(assets[index], fit: BoxFit.cover, alignment: Alignment.topCenter),
+              Image.asset(
+                assets[index],
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+              ),
               Center(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -437,7 +472,11 @@ class _ProfileVideoGrid extends StatelessWidget {
                   ),
                   child: const SizedBox.square(
                     dimension: 34,
-                    child: Icon(CupertinoIcons.play_fill, color: CupertinoColors.white, size: 18),
+                    child: Icon(
+                      CupertinoIcons.play_fill,
+                      color: CupertinoColors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
               ),
@@ -544,4 +583,3 @@ TextStyle _profileTextStyle({
     decoration: TextDecoration.none,
   );
 }
-

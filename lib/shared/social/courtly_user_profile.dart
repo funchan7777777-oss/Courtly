@@ -21,4 +21,3 @@ class CourtlyUserProfile {
   final List<String> videoAssets;
   final List<String> postAssets;
 }
-

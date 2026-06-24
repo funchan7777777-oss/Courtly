@@ -343,35 +343,6 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
       _posts = nextPosts;
     });
   }
-
-  Future<void> _showNotice({required String title, required String message}) {
-    return showCupertinoDialog<void>(
-      context: context,
-      builder: (context) {
-        return CupertinoAlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  String _formatNow() {
-    final now = DateTime.now();
-    final year = now.year.toString().padLeft(4, '0');
-    final month = now.month.toString().padLeft(2, '0');
-    final day = now.day.toString().padLeft(2, '0');
-    final hour = now.hour.toString().padLeft(2, '0');
-    final minute = now.minute.toString().padLeft(2, '0');
-
-    return '$year/$month/$day $hour:$minute';
-  }
 }
 
 enum _PostAction { profile, report, hide }
@@ -496,11 +467,13 @@ class _ActivePlayersStrip extends StatelessWidget {
         itemCount: CourtlyMediaAssets.allHeads.length,
         separatorBuilder: (context, index) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
-          final profile = CourtlyUserDirectory.featuredProfiles(
-            CourtlyMediaAssets.allHeads.length,
-          )[index % CourtlyUserDirectory.featuredProfiles(
-            CourtlyMediaAssets.allHeads.length,
-          ).length];
+          final profile =
+              CourtlyUserDirectory.featuredProfiles(
+                CourtlyMediaAssets.allHeads.length,
+              )[index %
+                  CourtlyUserDirectory.featuredProfiles(
+                    CourtlyMediaAssets.allHeads.length,
+                  ).length];
 
           return CupertinoButton(
             minimumSize: Size.zero,
@@ -1999,24 +1972,42 @@ class _PodiumPerson extends StatelessWidget {
         Stack(
           alignment: Alignment.center,
           children: [
-            Image.asset(
-              asset,
-              width: isWinner ? 86 : 72,
-              height: isWinner ? 94 : 82,
-              fit: BoxFit.contain,
+            CupertinoButton(
+              minimumSize: Size.zero,
+              padding: EdgeInsets.zero,
+              onPressed: () => _openRankingProfile(context, entry),
+              child: Image.asset(
+                asset,
+                width: isWinner ? 86 : 72,
+                height: isWinner ? 94 : 82,
+                fit: BoxFit.contain,
+              ),
             ),
-            _Avatar(assetPath: entry.avatarAsset, size: isWinner ? 42 : 34),
+            CupertinoButton(
+              minimumSize: Size.zero,
+              padding: EdgeInsets.zero,
+              onPressed: () => _openRankingProfile(context, entry),
+              child: _Avatar(
+                assetPath: entry.avatarAsset,
+                size: isWinner ? 42 : 34,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 6),
-        Text(
-          entry.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: _postText(context).copyWith(
-            color: CupertinoColors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
+        CupertinoButton(
+          minimumSize: Size.zero,
+          padding: EdgeInsets.zero,
+          onPressed: () => _openRankingProfile(context, entry),
+          child: Text(
+            entry.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _postText(context).copyWith(
+              color: CupertinoColors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ),
         const SizedBox(height: 4),
@@ -2092,17 +2083,30 @@ class _RankingList extends StatelessWidget {
                   ),
                 ),
               ),
-              _Avatar(assetPath: entry.avatarAsset, size: 30),
+              CupertinoButton(
+                minimumSize: Size.zero,
+                padding: EdgeInsets.zero,
+                onPressed: () => _openRankingProfile(context, entry),
+                child: _Avatar(assetPath: entry.avatarAsset, size: 30),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  entry.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _postText(context).copyWith(
-                    color: CupertinoColors.white.withValues(alpha: 0.64),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                child: CupertinoButton(
+                  minimumSize: Size.zero,
+                  padding: EdgeInsets.zero,
+                  onPressed: () => _openRankingProfile(context, entry),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      entry.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _postText(context).copyWith(
+                        color: CupertinoColors.white.withValues(alpha: 0.64),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -2120,6 +2124,23 @@ class _RankingList extends StatelessWidget {
       ),
     );
   }
+}
+
+void _openRankingProfile(BuildContext context, PostRankingEntry entry) {
+  final profile = CourtlyUserDirectory.fromIdentity(
+    name: entry.name,
+    avatarAsset: entry.avatarAsset,
+  );
+  Navigator.of(context).push(
+    CupertinoPageRoute<void>(
+      builder: (_) => CourtlyUserProfilePage(
+        profile: profile,
+        onOpenChat: (profile) {
+          unawaited(openClubChatForProfile(context, profile));
+        },
+      ),
+    ),
+  );
 }
 
 class _PostCommentRow extends StatelessWidget {

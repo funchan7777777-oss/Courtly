@@ -4,4 +4,3 @@ abstract final class ClubChatSeed {
   static const List<ClubFriendRequest> openingRequests = [];
   static const List<ClubConversation> openingConversations = [];
 }
-

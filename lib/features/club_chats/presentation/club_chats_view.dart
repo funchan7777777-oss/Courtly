@@ -305,6 +305,11 @@ class _ClubChatsViewState extends State<ClubChatsView> {
       return;
     }
 
+    await _loadLocalState();
+    if (!mounted) {
+      return;
+    }
+
     final index = _conversations.indexWhere((entry) => entry.id == updated.id);
     if (index == -1) {
       return;
@@ -748,7 +753,7 @@ class _ClubChatThreadPageState extends State<ClubChatThreadPage> {
                 conversation: _conversation,
                 onBack: _close,
                 onOpenProfile: _openProfile,
-                onVideoCall: () => unawaited(_confirmAndOpenVideoCall()),
+                onMore: () => unawaited(_openModeration()),
               ),
               _ThreadProfileCard(
                 conversation: _conversation,
@@ -829,6 +834,9 @@ class _ClubChatThreadPageState extends State<ClubChatThreadPage> {
     if (!await _ensureMutualAccess('Video calls require mutual follow')) {
       return;
     }
+    if (!mounted) {
+      return;
+    }
 
     final confirmed = await showCupertinoDialog<bool>(
       context: context,
@@ -893,6 +901,39 @@ class _ClubChatThreadPageState extends State<ClubChatThreadPage> {
     );
   }
 
+  Future<void> _openModeration() async {
+    final result = await showCourtlyModerationSheet(
+      context: context,
+      targetId: 'chat:${_conversation.userId}',
+      targetType: 'chat',
+      title: _conversation.playerName,
+      userId: _conversation.userId,
+      summary: _conversation.preview,
+    );
+    if (result == null || !mounted) {
+      return;
+    }
+
+    if (result.action == CourtlyModerationAction.block) {
+      await showCourtlyActionSuccess(
+        context: context,
+        title: 'User blocked',
+        message:
+            'This player and their conversation will stay hidden from your club chat.',
+      );
+      if (mounted) {
+        Navigator.of(context).pop(_conversation);
+      }
+      return;
+    }
+
+    await showCourtlyActionSuccess(
+      context: context,
+      title: 'Report sent',
+      message: 'The report was saved locally.',
+    );
+  }
+
   void _close() {
     Navigator.of(context).pop(_conversation);
   }
@@ -911,13 +952,13 @@ class _ThreadHeader extends StatelessWidget {
     required this.conversation,
     required this.onBack,
     required this.onOpenProfile,
-    required this.onVideoCall,
+    required this.onMore,
   });
 
   final ClubConversation conversation;
   final VoidCallback onBack;
   final VoidCallback onOpenProfile;
-  final VoidCallback onVideoCall;
+  final VoidCallback onMore;
 
   @override
   Widget build(BuildContext context) {
@@ -948,10 +989,7 @@ class _ThreadHeader extends StatelessWidget {
                 ),
               ),
             ),
-            _HeaderIconButton(
-              icon: CupertinoIcons.ellipsis,
-              onPressed: onVideoCall,
-            ),
+            _HeaderIconButton(icon: CupertinoIcons.ellipsis, onPressed: onMore),
           ],
         ),
       ),

@@ -311,16 +311,6 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
       },
     );
   }
-
-  String _formatNow() {
-    final now = DateTime.now();
-    final month = now.month.toString().padLeft(2, '0');
-    final day = now.day.toString().padLeft(2, '0');
-    final hour = now.hour.toString().padLeft(2, '0');
-    final minute = now.minute.toString().padLeft(2, '0');
-
-    return '${now.year}-$month-$day $hour:$minute';
-  }
 }
 
 class CourtReelStage extends StatelessWidget {
@@ -1292,11 +1282,15 @@ class CourtReelCommentsSheet extends StatefulWidget {
   const CourtReelCommentsSheet({
     required this.reel,
     required this.onCommentsChanged,
+    required this.onOpenProfile,
+    required this.onModerated,
     super.key,
   });
 
   final CourtReel reel;
   final ValueChanged<List<CourtReelComment>> onCommentsChanged;
+  final ValueChanged<CourtReelComment> onOpenProfile;
+  final ValueChanged<CourtlyModerationResult> onModerated;
 
   @override
   State<CourtReelCommentsSheet> createState() => _CourtReelCommentsSheetState();
@@ -1337,6 +1331,8 @@ class _CourtReelCommentsSheetState extends State<CourtReelCommentsSheet> {
                 comments: _comments,
                 controller: _commentController,
                 onSend: _sendComment,
+                onOpenProfile: widget.onOpenProfile,
+                onReportComment: _reportComment,
               ),
               Positioned(
                 top: 12,
@@ -1362,6 +1358,8 @@ class _CourtReelCommentsSheetState extends State<CourtReelCommentsSheet> {
     final nextComments = [
       ..._comments,
       CourtReelComment(
+        id: 'local-reel-comment-${DateTime.now().microsecondsSinceEpoch}',
+        authorId: 'you',
         author: 'You',
         timeLabel: 'now',
         message: message,
@@ -1375,6 +1373,27 @@ class _CourtReelCommentsSheetState extends State<CourtReelCommentsSheet> {
     });
     widget.onCommentsChanged(nextComments);
   }
+
+  Future<void> _reportComment(CourtReelComment comment) async {
+    final result = await showCourtlyModerationSheet(
+      context: context,
+      targetId: 'reel-comment:${comment.id}',
+      targetType: 'comment',
+      title: comment.author,
+      userId: comment.authorId,
+      summary: comment.message,
+    );
+    if (result == null || !mounted) {
+      return;
+    }
+
+    final nextComments = _comments
+        .where((entry) => entry.id != comment.id)
+        .toList(growable: false);
+    setState(() => _comments = nextComments);
+    widget.onCommentsChanged(nextComments);
+    widget.onModerated(result);
+  }
 }
 
 class _CommentsPanel extends StatelessWidget {
@@ -1382,11 +1401,15 @@ class _CommentsPanel extends StatelessWidget {
     required this.comments,
     required this.controller,
     required this.onSend,
+    required this.onOpenProfile,
+    required this.onReportComment,
   });
 
   final List<CourtReelComment> comments;
   final TextEditingController controller;
   final VoidCallback onSend;
+  final ValueChanged<CourtReelComment> onOpenProfile;
+  final ValueChanged<CourtReelComment> onReportComment;
 
   @override
   Widget build(BuildContext context) {
@@ -1418,7 +1441,12 @@ class _CommentsPanel extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
               physics: const BouncingScrollPhysics(),
               itemBuilder: (context, index) {
-                return _CommentRow(comment: comments[index]);
+                final comment = comments[index];
+                return _CommentRow(
+                  comment: comment,
+                  onOpenProfile: () => onOpenProfile(comment),
+                  onReport: () => onReportComment(comment),
+                );
               },
               separatorBuilder: (context, index) {
                 return SizedBox(
@@ -1445,9 +1473,15 @@ class _CommentsPanel extends StatelessWidget {
 }
 
 class _CommentRow extends StatelessWidget {
-  const _CommentRow({required this.comment});
+  const _CommentRow({
+    required this.comment,
+    required this.onOpenProfile,
+    required this.onReport,
+  });
 
   final CourtReelComment comment;
+  final VoidCallback onOpenProfile;
+  final VoidCallback onReport;
 
   @override
   Widget build(BuildContext context) {
@@ -1456,12 +1490,17 @@ class _CommentRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ClipOval(
-          child: Image.asset(
-            comment.avatarAsset,
-            width: 34,
-            height: 34,
-            fit: BoxFit.cover,
+        CupertinoButton(
+          minimumSize: Size.zero,
+          padding: EdgeInsets.zero,
+          onPressed: onOpenProfile,
+          child: ClipOval(
+            child: Image.asset(
+              comment.avatarAsset,
+              width: 34,
+              height: 34,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
         const SizedBox(width: 10),
@@ -1472,16 +1511,24 @@ class _CommentRow extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      comment.author,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: textStyle.copyWith(
-                        color: CupertinoColors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0,
-                        decoration: TextDecoration.none,
+                    child: CupertinoButton(
+                      minimumSize: Size.zero,
+                      padding: EdgeInsets.zero,
+                      onPressed: onOpenProfile,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          comment.author,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textStyle.copyWith(
+                            color: CupertinoColors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1496,10 +1543,15 @@ class _CommentRow extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Icon(
-                    CupertinoIcons.ellipsis_vertical,
-                    size: 18,
-                    color: CupertinoColors.white.withValues(alpha: 0.76),
+                  CupertinoButton(
+                    minimumSize: Size.zero,
+                    padding: EdgeInsets.zero,
+                    onPressed: onReport,
+                    child: Icon(
+                      CupertinoIcons.ellipsis_vertical,
+                      size: 18,
+                      color: CupertinoColors.white.withValues(alpha: 0.76),
+                    ),
                   ),
                 ],
               ),
@@ -1585,161 +1637,6 @@ class _CommentComposer extends StatelessWidget {
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-enum CourtModerationAction { report, block }
-
-class CourtModerationSheet extends StatefulWidget {
-  const CourtModerationSheet({super.key});
-
-  @override
-  State<CourtModerationSheet> createState() => _CourtModerationSheetState();
-}
-
-class _CourtModerationSheetState extends State<CourtModerationSheet> {
-  CourtModerationAction _selectedAction = CourtModerationAction.block;
-
-  @override
-  Widget build(BuildContext context) {
-    final width = (MediaQuery.sizeOf(context).width - 54)
-        .clamp(280.0, 336.0)
-        .toDouble();
-
-    return Center(
-      child: Container(
-        width: width,
-        decoration: BoxDecoration(
-          color: const Color(0xFF2A005F),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x66000000),
-              blurRadius: 30,
-              offset: Offset(0, 16),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(
-                'assets/images/Meetup.png',
-                height: 126,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-                child: Column(
-                  children: [
-                    _ModerationOption(
-                      label: 'Report',
-                      isSelected:
-                          _selectedAction == CourtModerationAction.report,
-                      onPressed: () {
-                        setState(
-                          () => _selectedAction = CourtModerationAction.report,
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    _ModerationOption(
-                      label: 'Block',
-                      isSelected:
-                          _selectedAction == CourtModerationAction.block,
-                      onPressed: () {
-                        setState(
-                          () => _selectedAction = CourtModerationAction.block,
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 28),
-                    CupertinoButton(
-                      minimumSize: Size.zero,
-                      padding: EdgeInsets.zero,
-                      onPressed: () {
-                        Navigator.of(context).pop(_selectedAction);
-                      },
-                      child: Image.asset(
-                        'assets/images/Trophy.png',
-                        width: 242,
-                        height: 55,
-                        fit: BoxFit.fill,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ModerationOption extends StatelessWidget {
-  const _ModerationOption({
-    required this.label,
-    required this.isSelected,
-    required this.onPressed,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoButton(
-      minimumSize: Size.zero,
-      padding: EdgeInsets.zero,
-      onPressed: onPressed,
-      child: Container(
-        height: 54,
-        decoration: BoxDecoration(
-          color: const Color(0xFF59308B),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          children: [
-            const SizedBox(width: 20),
-            const Icon(
-              CupertinoIcons.exclamationmark_square_fill,
-              color: CupertinoColors.white,
-              size: 23,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                label,
-                style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
-                  color: CupertinoColors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-            ),
-            Icon(
-              isSelected
-                  ? CupertinoIcons.check_mark_circled_solid
-                  : CupertinoIcons.circle_fill,
-              color: CupertinoColors.white.withValues(
-                alpha: isSelected ? 1 : 0.1,
-              ),
-              size: 25,
-            ),
-            const SizedBox(width: 18),
           ],
         ),
       ),

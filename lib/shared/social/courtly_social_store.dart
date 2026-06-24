@@ -180,4 +180,3 @@ class CourtlySocialStore {
     return (preferences.getStringList(key) ?? <String>[]).toSet();
   }
 }
-

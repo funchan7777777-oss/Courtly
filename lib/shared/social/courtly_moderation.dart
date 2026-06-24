@@ -112,7 +112,8 @@ class _CourtlyModerationSheet extends StatefulWidget {
   final bool allowBlock;
 
   @override
-  State<_CourtlyModerationSheet> createState() => _CourtlyModerationSheetState();
+  State<_CourtlyModerationSheet> createState() =>
+      _CourtlyModerationSheetState();
 }
 
 class _CourtlyModerationSheetState extends State<_CourtlyModerationSheet> {
@@ -126,7 +127,9 @@ class _CourtlyModerationSheetState extends State<_CourtlyModerationSheet> {
     return Align(
       alignment: Alignment.bottomCenter,
       child: Container(
-        margin: EdgeInsets.only(bottom: bottomPadding == 0 ? 12 : bottomPadding),
+        margin: EdgeInsets.only(
+          bottom: bottomPadding == 0 ? 12 : bottomPadding,
+        ),
         width: double.infinity,
         constraints: const BoxConstraints(maxWidth: 390),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
@@ -359,7 +362,9 @@ class _SheetSecondaryButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: CupertinoColors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(23),
-          border: Border.all(color: CupertinoColors.white.withValues(alpha: 0.16)),
+          border: Border.all(
+            color: CupertinoColors.white.withValues(alpha: 0.16),
+          ),
         ),
         child: Center(
           child: Text(
@@ -395,7 +400,9 @@ class _CourtlyStatusDialog extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFF1A004D),
           borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: CupertinoColors.white.withValues(alpha: 0.14)),
+          border: Border.all(
+            color: CupertinoColors.white.withValues(alpha: 0.14),
+          ),
           boxShadow: const [
             BoxShadow(
               color: Color(0x88000000),
@@ -423,7 +430,10 @@ class _CourtlyStatusDialog extends StatelessWidget {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: _sheetTextStyle(fontSize: 21, fontWeight: FontWeight.w900),
+                style: _sheetTextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
               const SizedBox(height: 10),
               Text(
@@ -465,4 +475,3 @@ TextStyle _sheetTextStyle({
     decoration: TextDecoration.none,
   );
 }
-
