@@ -12,11 +12,7 @@ enum RallyBackdrop {
 }
 
 class RallyBackdropLayer extends StatelessWidget {
-  const RallyBackdropLayer({
-    required this.backdropPath,
-    this.child,
-    super.key,
-  });
+  const RallyBackdropLayer({required this.backdropPath, this.child, super.key});
 
   final RallyBackdrop backdropPath;
   final Widget? child;
@@ -31,7 +27,7 @@ class RallyBackdropLayer extends StatelessWidget {
           fit: BoxFit.cover,
           alignment: Alignment.center,
         ),
-        if (child != null) child!,
+        ?child,
       ],
     );
   }

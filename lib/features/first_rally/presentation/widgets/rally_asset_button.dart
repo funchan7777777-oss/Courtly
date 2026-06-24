@@ -17,11 +17,13 @@ class RallyAssetButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final buttonWidth = (screenWidth * widthRatio).clamp(250.0, 310.0);
+    final buttonWidth = (screenWidth * widthRatio)
+        .clamp(250.0, 310.0)
+        .toDouble();
     final buttonHeight = buttonWidth / (580 / 110);
 
     return CupertinoButton(
-      minSize: 0,
+      minimumSize: Size.zero,
       padding: EdgeInsets.zero,
       onPressed: onPressed,
       child: Semantics(

@@ -54,7 +54,7 @@ class _RallyEntryFieldState extends State<RallyEntryField> {
         ),
         suffix: isPassword
             ? CupertinoButton(
-                minSize: 0,
+                minimumSize: Size.zero,
                 padding: const EdgeInsets.only(right: 14),
                 onPressed: () {
                   setState(() => _obscured = !_obscured);

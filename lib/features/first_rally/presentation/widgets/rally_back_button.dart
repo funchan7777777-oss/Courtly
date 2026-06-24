@@ -9,7 +9,7 @@ class RallyBackButton extends StatelessWidget {
       left: 14,
       top: MediaQuery.sizeOf(context).height * 0.058,
       child: CupertinoButton(
-        minSize: 0,
+        minimumSize: Size.zero,
         padding: const EdgeInsets.all(8),
         onPressed: () => Navigator.of(context).maybePop(),
         child: const Icon(

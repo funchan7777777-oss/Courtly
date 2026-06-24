@@ -38,9 +38,7 @@ class _FirstRallyGateState extends State<FirstRallyGate> {
   @override
   Widget build(BuildContext context) {
     return const CupertinoPageScaffold(
-      child: RallyBackdropLayer(
-        backdropPath: RallyBackdrop.surfaceSplash,
-      ),
+      child: RallyBackdropLayer(backdropPath: RallyBackdrop.surfaceSplash),
     );
   }
 }
