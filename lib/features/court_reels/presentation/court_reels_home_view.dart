@@ -1078,9 +1078,14 @@ class _CommentsPanel extends StatelessWidget {
                 return _CommentRow(comment: comments[index]);
               },
               separatorBuilder: (context, index) {
-                return Divider(
+                return SizedBox(
                   height: 22,
-                  color: CupertinoColors.white.withValues(alpha: 0.24),
+                  child: Center(
+                    child: ColoredBox(
+                      color: CupertinoColors.white.withValues(alpha: 0.24),
+                      child: const SizedBox(height: 1, width: double.infinity),
+                    ),
+                  ),
                 );
               },
               itemCount: comments.length,

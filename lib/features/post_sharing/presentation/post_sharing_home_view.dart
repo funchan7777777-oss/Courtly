@@ -880,9 +880,14 @@ class _DetailCommentsPanel extends StatelessWidget {
                 return _PostCommentRow(comment: post.comments[index]);
               },
               separatorBuilder: (context, index) {
-                return Divider(
+                return SizedBox(
                   height: 22,
-                  color: CupertinoColors.white.withValues(alpha: 0.22),
+                  child: Center(
+                    child: ColoredBox(
+                      color: CupertinoColors.white.withValues(alpha: 0.22),
+                      child: const SizedBox(height: 1, width: double.infinity),
+                    ),
+                  ),
                 );
               },
             ),
@@ -1848,9 +1853,14 @@ class _RankingList extends StatelessWidget {
         physics: const BouncingScrollPhysics(),
         itemCount: entries.length,
         separatorBuilder: (context, index) {
-          return Divider(
+          return SizedBox(
             height: 18,
-            color: CupertinoColors.white.withValues(alpha: 0.08),
+            child: Center(
+              child: ColoredBox(
+                color: CupertinoColors.white.withValues(alpha: 0.08),
+                child: const SizedBox(height: 1, width: double.infinity),
+              ),
+            ),
           );
         },
         itemBuilder: (context, index) {
