@@ -1,10 +1,16 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:courtly/features/club_chats/presentation/club_chats_view.dart';
 import 'package:courtly/features/court_reels/data/court_reel_seed.dart';
 import 'package:courtly/features/court_reels/domain/court_reel.dart';
 import 'package:courtly/shared/data/courtly_media_assets.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
+import 'package:courtly/shared/social/courtly_moderation.dart';
+import 'package:courtly/shared/social/courtly_social_store.dart';
+import 'package:courtly/shared/social/courtly_user_directory.dart';
+import 'package:courtly/shared/social/courtly_user_profile.dart';
+import 'package:courtly/shared/social/courtly_user_profile_page.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
@@ -22,6 +28,14 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
   int _currentIndex = 0;
   bool _soundOn = true;
   bool _isPlaying = true;
+  Set<String> _reportedContentIds = {};
+  Set<String> _blockedUserIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadModerationState());
+  }
 
   @override
   void dispose() {
@@ -41,13 +55,13 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
           : PageView.builder(
               controller: _pageController,
               scrollDirection: Axis.vertical,
-              itemCount: _reels.length,
+              itemCount: _visibleReels.length,
               onPageChanged: (index) => setState(() {
                 _currentIndex = index;
                 _isPlaying = true;
               }),
               itemBuilder: (context, index) {
-                final reel = _reels[index];
+                final reel = _visibleReels[index];
 
                 return CourtReelStage(
                   reel: reel,
@@ -63,6 +77,7 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
                   },
                   onLike: () => _toggleLike(reel.id),
                   onFollow: () => _toggleFollow(reel.id),
+                  onOpenProfile: () => _openProfile(reel),
                   onComment: () {
                     unawaited(_openComments(reel));
                   },
@@ -76,6 +91,42 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
               },
             ),
     );
+  }
+
+  List<CourtReel> get _visibleReels {
+    return _reels
+        .where(
+          (reel) =>
+              !_blockedUserIds.contains(reel.userId) &&
+              !_reportedContentIds.contains('reel:${reel.id}'),
+        )
+        .toList(growable: false);
+  }
+
+  Future<void> _loadModerationState() async {
+    final store = CourtlySocialStore.instance;
+    final reported = await store.reportedContentIds();
+    final blocked = await store.blockedUserIds();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _reportedContentIds = reported;
+      _blockedUserIds = blocked;
+      _reels = _reels
+          .map(
+            (reel) => reel.copyWith(
+              comments: reel.comments
+                  .where(
+                    (comment) =>
+                        !reported.contains('reel-comment:${comment.id}') &&
+                        !blocked.contains(comment.authorId),
+                  )
+                  .toList(growable: false),
+            ),
+          )
+          .toList(growable: false);
+    });
   }
 
   void _toggleLike(String reelId) {
@@ -99,6 +150,7 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
     }
 
     final reel = _reels[index];
+    unawaited(CourtlySocialStore.instance.requestFollow(reel.userId));
     _replaceReelAt(index, reel.copyWith(isFollowed: !reel.isFollowed));
   }
 
@@ -113,29 +165,7 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
       return;
     }
 
-    final reel = CourtReel(
-      id: 'local-${DateTime.now().microsecondsSinceEpoch}',
-      playerName: 'You',
-      gender: CourtReelGender.female,
-      createdAtLabel: _formatNow(),
-      caption: draft.mood,
-      backdropAsset: CourtlyMediaAssets.postImages.first,
-      videoAsset: draft.videoPath,
-      avatarAsset: CourtlyMediaAssets.womenHeads.first,
-      likes: 0,
-      shares: 0,
-      isLiked: false,
-      isFollowed: false,
-      comments: const [],
-    );
-
-    setState(() {
-      _reels = [reel, ..._reels];
-      _currentIndex = 0;
-    });
-    if (_pageController.hasClients) {
-      _pageController.jumpToPage(0);
-    }
+    await showCourtlyReviewDialog(context);
   }
 
   Future<void> _openComments(CourtReel reel) async {
@@ -144,6 +174,10 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
       barrierColor: CupertinoColors.black.withValues(alpha: 0.48),
       builder: (_) => CourtReelCommentsSheet(
         reel: reel,
+        onOpenProfile: _openCommentProfile,
+        onModerated: (result) {
+          unawaited(_handleModerationResult(result));
+        },
         onCommentsChanged: (comments) {
           if (!mounted) {
             return;
@@ -159,32 +193,85 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
   }
 
   Future<void> _openModeration(CourtReel reel) async {
-    final action = await showCupertinoModalPopup<CourtModerationAction>(
+    final result = await showCourtlyModerationSheet(
       context: context,
-      barrierColor: CupertinoColors.black.withValues(alpha: 0.58),
-      builder: (_) => const CourtModerationSheet(),
+      targetId: 'reel:${reel.id}',
+      targetType: 'reel',
+      title: reel.playerName,
+      userId: reel.userId,
+      summary: reel.caption,
     );
 
-    if (action == null || !mounted) {
+    if (result == null || !mounted) {
       return;
     }
 
-    if (action == CourtModerationAction.block) {
-      setState(() {
-        _reels = _reels.where((entry) => entry.id != reel.id).toList();
-        if (_currentIndex >= _reels.length) {
-          _currentIndex = (_reels.length - 1).clamp(0, 999).toInt();
-        }
-      });
-      if (_pageController.hasClients && _reels.isNotEmpty) {
+    await _handleModerationResult(result);
+  }
+
+  Future<void> _handleModerationResult(CourtlyModerationResult result) async {
+    await _loadModerationState();
+    if (!mounted) {
+      return;
+    }
+
+    final visibleCount = _visibleReels.length;
+    if (_currentIndex >= visibleCount) {
+      _currentIndex = (visibleCount - 1).clamp(0, 999).toInt();
+      if (_pageController.hasClients && visibleCount > 0) {
         _pageController.jumpToPage(_currentIndex);
       }
+    }
+
+    if (result.action == CourtlyModerationAction.block) {
+      await showCourtlyActionSuccess(
+        context: context,
+        title: 'User blocked',
+        message:
+            'That player and their reels, comments, and chats will stay hidden.',
+      );
       return;
     }
 
-    await _showNotice(
+    await showCourtlyActionSuccess(
+      context: context,
       title: 'Report sent',
-      message: 'Thanks for keeping Court Reels respectful.',
+      message: 'The report was saved locally and this item is now hidden.',
+    );
+  }
+
+  void _openProfile(CourtReel reel) {
+    _openUserProfile(
+      CourtlyUserDirectory.fromIdentity(
+        name: reel.playerName,
+        avatarAsset: reel.avatarAsset,
+        heroAsset: reel.backdropAsset,
+      ),
+    );
+  }
+
+  void _openCommentProfile(CourtReelComment comment) {
+    _openUserProfile(
+      CourtlyUserDirectory.fromIdentity(
+        name: comment.author,
+        avatarAsset: comment.avatarAsset,
+      ),
+    );
+  }
+
+  void _openUserProfile(CourtlyUserProfile profile) {
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (_) => CourtlyUserProfilePage(
+          profile: profile,
+          onOpenChat: (profile) {
+            unawaited(openClubChatForProfile(context, profile));
+          },
+          onModerated: (result) {
+            unawaited(_handleModerationResult(result));
+          },
+        ),
+      ),
     );
   }
 
@@ -247,6 +334,7 @@ class CourtReelStage extends StatelessWidget {
     required this.onPublish,
     required this.onLike,
     required this.onFollow,
+    required this.onOpenProfile,
     required this.onComment,
     required this.onModerate,
     required this.onShare,
@@ -262,6 +350,7 @@ class CourtReelStage extends StatelessWidget {
   final VoidCallback onPublish;
   final VoidCallback onLike;
   final VoidCallback onFollow;
+  final VoidCallback onOpenProfile;
   final VoidCallback onComment;
   final VoidCallback onModerate;
   final VoidCallback onShare;
@@ -340,7 +429,11 @@ class CourtReelStage extends StatelessWidget {
           left: 22,
           right: 22,
           bottom: 104,
-          child: _ReelCaptionBlock(reel: reel, onFollow: onFollow),
+          child: _ReelCaptionBlock(
+            reel: reel,
+            onFollow: onFollow,
+            onOpenProfile: onOpenProfile,
+          ),
         ),
       ],
     );
@@ -761,10 +854,15 @@ class _AnimatedRailCount extends StatelessWidget {
 }
 
 class _ReelCaptionBlock extends StatelessWidget {
-  const _ReelCaptionBlock({required this.reel, required this.onFollow});
+  const _ReelCaptionBlock({
+    required this.reel,
+    required this.onFollow,
+    required this.onOpenProfile,
+  });
 
   final CourtReel reel;
   final VoidCallback onFollow;
+  final VoidCallback onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -791,17 +889,22 @@ class _ReelCaptionBlock extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              Text(
-                reel.playerName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: textStyle.copyWith(
-                  color: CupertinoColors.white,
-                  fontSize: 22,
-                  height: 1.05,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                  decoration: TextDecoration.none,
+              CupertinoButton(
+                minimumSize: Size.zero,
+                padding: EdgeInsets.zero,
+                onPressed: onOpenProfile,
+                child: Text(
+                  reel.playerName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textStyle.copyWith(
+                    color: CupertinoColors.white,
+                    fontSize: 22,
+                    height: 1.05,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                    decoration: TextDecoration.none,
+                  ),
                 ),
               ),
               const SizedBox(height: 4),
@@ -837,12 +940,17 @@ class _ReelCaptionBlock extends StatelessWidget {
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ClipOval(
-              child: Image.asset(
-                reel.avatarAsset,
-                width: 54,
-                height: 54,
-                fit: BoxFit.cover,
+            CupertinoButton(
+              minimumSize: Size.zero,
+              padding: EdgeInsets.zero,
+              onPressed: onOpenProfile,
+              child: ClipOval(
+                child: Image.asset(
+                  reel.avatarAsset,
+                  width: 54,
+                  height: 54,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
             const SizedBox(height: 10),

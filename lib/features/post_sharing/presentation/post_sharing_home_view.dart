@@ -1,10 +1,16 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:courtly/features/club_chats/presentation/club_chats_view.dart';
 import 'package:courtly/features/post_sharing/data/post_sharing_seed.dart';
 import 'package:courtly/features/post_sharing/domain/post_sharing_post.dart';
 import 'package:courtly/shared/data/courtly_media_assets.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
+import 'package:courtly/shared/social/courtly_moderation.dart';
+import 'package:courtly/shared/social/courtly_social_store.dart';
+import 'package:courtly/shared/social/courtly_user_directory.dart';
+import 'package:courtly/shared/social/courtly_user_profile.dart';
+import 'package:courtly/shared/social/courtly_user_profile_page.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -26,6 +32,14 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
   );
   int _checkInDays = 213;
   final Set<int> _checkedDays = {2, 8, 14, 21};
+  Set<String> _reportedContentIds = {};
+  Set<String> _blockedUserIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadModerationState());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,19 +68,21 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
                 ),
               ),
             ),
-            const SliverToBoxAdapter(child: _ActivePlayersStrip()),
+            SliverToBoxAdapter(
+              child: _ActivePlayersStrip(onOpenProfile: _openUserProfile),
+            ),
             const SliverToBoxAdapter(child: SizedBox(height: 18)),
             SliverList.separated(
-              itemCount: _posts.length,
+              itemCount: _visiblePosts.length,
               itemBuilder: (context, index) {
-                final post = _posts[index];
+                final post = _visiblePosts[index];
 
                 return Padding(
                   padding: EdgeInsets.fromLTRB(
                     22,
                     index == 0 ? 0 : 4,
                     22,
-                    index == _posts.length - 1 ? 120 : 0,
+                    index == _visiblePosts.length - 1 ? 120 : 0,
                   ),
                   child: _PostCard(
                     post: post,
@@ -86,6 +102,42 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
     );
   }
 
+  List<PostSharingPost> get _visiblePosts {
+    return _posts
+        .where(
+          (post) =>
+              !_blockedUserIds.contains(post.authorId) &&
+              !_reportedContentIds.contains('post:${post.id}'),
+        )
+        .toList(growable: false);
+  }
+
+  Future<void> _loadModerationState() async {
+    final store = CourtlySocialStore.instance;
+    final reported = await store.reportedContentIds();
+    final blocked = await store.blockedUserIds();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _reportedContentIds = reported;
+      _blockedUserIds = blocked;
+      _posts = _posts
+          .map(
+            (post) => post.copyWith(
+              comments: post.comments
+                  .where(
+                    (comment) =>
+                        !reported.contains('post-comment:${comment.id}') &&
+                        !blocked.contains(comment.authorId),
+                  )
+                  .toList(growable: false),
+            ),
+          )
+          .toList(growable: false);
+    });
+  }
+
   Future<void> _openComposer() async {
     final draft = await Navigator.of(context).push<PostSharingDraft>(
       CupertinoPageRoute<PostSharingDraft>(
@@ -97,25 +149,7 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
       return;
     }
 
-    final post = PostSharingPost(
-      id: 'local-post-${DateTime.now().microsecondsSinceEpoch}',
-      authorName: 'You',
-      createdAtLabel: _formatNow(),
-      body: draft.body,
-      imageAsset: draft.imagePath,
-      avatarAsset: CourtlyMediaAssets.womenHeads.first,
-      likes: 0,
-      isLiked: false,
-      isFollowed: true,
-      comments: const [],
-      videoAssets: [
-        CourtlyMediaAssets.postImages[0],
-        CourtlyMediaAssets.postImages[1],
-        CourtlyMediaAssets.postImages[2],
-      ],
-    );
-
-    setState(() => _posts = [post, ..._posts]);
+    await showCourtlyReviewDialog(context);
   }
 
   Future<void> _openDetail(PostSharingPost post) async {
@@ -123,6 +157,8 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
       CupertinoPageRoute<PostSharingPost>(
         builder: (_) => PostDetailPage(
           post: post,
+          onOpenProfile: _openUserProfile,
+          onModerated: _handleModerationResult,
           onCompose: () {
             unawaited(_openComposer());
           },
@@ -138,17 +174,32 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
   }
 
   Future<void> _openProfile(PostSharingPost post) async {
-    final updated = await Navigator.of(context).push<PostSharingPost>(
-      CupertinoPageRoute<PostSharingPost>(
-        builder: (_) => PostUserHomePage(post: post),
+    await _openUserProfile(
+      CourtlyUserDirectory.fromIdentity(
+        name: post.authorName,
+        avatarAsset: post.avatarAsset,
+        heroAsset: post.imageAsset,
       ),
     );
+  }
 
-    if (updated == null || !mounted) {
-      return;
+  Future<void> _openUserProfile(CourtlyUserProfile profile) async {
+    await Navigator.of(context).push<void>(
+      CupertinoPageRoute<void>(
+        builder: (_) => CourtlyUserProfilePage(
+          profile: profile,
+          onOpenChat: (profile) {
+            unawaited(openClubChatForProfile(context, profile));
+          },
+          onModerated: (result) {
+            unawaited(_handleModerationResult(result));
+          },
+        ),
+      ),
+    );
+    if (mounted) {
+      unawaited(_loadModerationState());
     }
-
-    _replacePost(updated.id, updated);
   }
 
   Future<void> _openCheckIn() async {
@@ -196,7 +247,8 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
     }
 
     final post = _posts[index];
-    _replacePostAt(index, post.copyWith(isFollowed: !post.isFollowed));
+    unawaited(CourtlySocialStore.instance.requestFollow(post.authorId));
+    _replacePostAt(index, post.copyWith(isFollowed: true));
   }
 
   Future<void> _showPostActions(PostSharingPost post) async {
@@ -236,15 +288,44 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
       case _PostAction.profile:
         unawaited(_openProfile(post));
       case _PostAction.report:
-        await _showNotice(
-          title: 'Report sent',
-          message: 'Thanks for helping keep Post sharing useful.',
+        final result = await showCourtlyModerationSheet(
+          context: context,
+          targetId: 'post:${post.id}',
+          targetType: 'post',
+          title: post.authorName,
+          userId: post.authorId,
+          summary: post.body,
         );
+        if (result != null) {
+          await _handleModerationResult(result);
+        }
       case _PostAction.hide:
         setState(() {
           _posts = _posts.where((entry) => entry.id != post.id).toList();
         });
     }
+  }
+
+  Future<void> _handleModerationResult(CourtlyModerationResult result) async {
+    await _loadModerationState();
+    if (!mounted) {
+      return;
+    }
+    if (result.action == CourtlyModerationAction.block) {
+      await showCourtlyActionSuccess(
+        context: context,
+        title: 'User blocked',
+        message:
+            'That player and their posts, comments, and chats will stay hidden.',
+      );
+      return;
+    }
+
+    await showCourtlyActionSuccess(
+      context: context,
+      title: 'Report sent',
+      message: 'The report was saved locally and this item is now hidden.',
+    );
   }
 
   void _replacePost(String postId, PostSharingPost post) {
@@ -400,7 +481,9 @@ class _ShortcutRow extends StatelessWidget {
 }
 
 class _ActivePlayersStrip extends StatelessWidget {
-  const _ActivePlayersStrip();
+  const _ActivePlayersStrip({required this.onOpenProfile});
+
+  final ValueChanged<CourtlyUserProfile> onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -413,19 +496,27 @@ class _ActivePlayersStrip extends StatelessWidget {
         itemCount: CourtlyMediaAssets.allHeads.length,
         separatorBuilder: (context, index) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: index.isEven ? _postPink : CupertinoColors.white,
-                width: 2,
+          final profile = CourtlyUserDirectory.featuredProfiles(
+            CourtlyMediaAssets.allHeads.length,
+          )[index % CourtlyUserDirectory.featuredProfiles(
+            CourtlyMediaAssets.allHeads.length,
+          ).length];
+
+          return CupertinoButton(
+            minimumSize: Size.zero,
+            padding: EdgeInsets.zero,
+            onPressed: () => onOpenProfile(profile),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: index.isEven ? _postPink : CupertinoColors.white,
+                  width: 2,
+                ),
               ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(2),
-              child: _Avatar(
-                assetPath: CourtlyMediaAssets.allHeads[index],
-                size: 52,
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: _Avatar(assetPath: profile.avatarAsset, size: 52),
               ),
             ),
           );
@@ -716,11 +807,15 @@ class PostDetailPage extends StatefulWidget {
   const PostDetailPage({
     required this.post,
     required this.onCompose,
+    required this.onOpenProfile,
+    required this.onModerated,
     super.key,
   });
 
   final PostSharingPost post;
   final VoidCallback onCompose;
+  final ValueChanged<CourtlyUserProfile> onOpenProfile;
+  final ValueChanged<CourtlyModerationResult> onModerated;
 
   @override
   State<PostDetailPage> createState() => _PostDetailPageState();
@@ -789,7 +884,11 @@ class _PostDetailPageState extends State<PostDetailPage> {
             left: 22,
             right: 22,
             bottom: 270 + keyboardInset,
-            child: _DetailAuthorBlock(post: _post, onFollow: _toggleFollow),
+            child: _DetailAuthorBlock(
+              post: _post,
+              onFollow: _toggleFollow,
+              onOpenProfile: _openAuthorProfile,
+            ),
           ),
           Positioned(
             left: 0,
@@ -800,6 +899,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
               post: _post,
               controller: _commentController,
               onSend: _sendComment,
+              onOpenProfile: _openCommentProfile,
+              onReportComment: _reportComment,
             ),
           ),
         ],
@@ -822,6 +923,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
         comments: [
           ..._post.comments,
           PostSharingComment(
+            id: 'local-post-comment-${DateTime.now().microsecondsSinceEpoch}',
+            authorId: 'you',
             authorName: 'You',
             createdAtLabel: 'now',
             body: body,
@@ -832,13 +935,60 @@ class _PostDetailPageState extends State<PostDetailPage> {
       _commentController.clear();
     });
   }
+
+  void _openAuthorProfile() {
+    widget.onOpenProfile(
+      CourtlyUserDirectory.fromIdentity(
+        name: _post.authorName,
+        avatarAsset: _post.avatarAsset,
+        heroAsset: _post.imageAsset,
+      ),
+    );
+  }
+
+  void _openCommentProfile(PostSharingComment comment) {
+    widget.onOpenProfile(
+      CourtlyUserDirectory.fromIdentity(
+        name: comment.authorName,
+        avatarAsset: comment.avatarAsset,
+      ),
+    );
+  }
+
+  Future<void> _reportComment(PostSharingComment comment) async {
+    final result = await showCourtlyModerationSheet(
+      context: context,
+      targetId: 'post-comment:${comment.id}',
+      targetType: 'comment',
+      title: comment.authorName,
+      userId: comment.authorId,
+      summary: comment.body,
+    );
+    if (result == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _post = _post.copyWith(
+        comments: _post.comments
+            .where((entry) => entry.id != comment.id)
+            .toList(growable: false),
+      );
+    });
+    widget.onModerated(result);
+  }
 }
 
 class _DetailAuthorBlock extends StatelessWidget {
-  const _DetailAuthorBlock({required this.post, required this.onFollow});
+  const _DetailAuthorBlock({
+    required this.post,
+    required this.onFollow,
+    required this.onOpenProfile,
+  });
 
   final PostSharingPost post;
   final VoidCallback onFollow;
+  final VoidCallback onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -849,14 +999,19 @@ class _DetailAuthorBlock extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(
-                post.authorName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _postText(context).copyWith(
-                  color: CupertinoColors.white,
-                  fontSize: 21,
-                  fontWeight: FontWeight.w900,
+              child: CupertinoButton(
+                minimumSize: Size.zero,
+                padding: EdgeInsets.zero,
+                onPressed: onOpenProfile,
+                child: Text(
+                  post.authorName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _postText(context).copyWith(
+                    color: CupertinoColors.white,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
             ),
@@ -904,11 +1059,15 @@ class _DetailCommentsPanel extends StatelessWidget {
     required this.post,
     required this.controller,
     required this.onSend,
+    required this.onOpenProfile,
+    required this.onReportComment,
   });
 
   final PostSharingPost post;
   final TextEditingController controller;
   final VoidCallback onSend;
+  final ValueChanged<PostSharingComment> onOpenProfile;
+  final ValueChanged<PostSharingComment> onReportComment;
 
   @override
   Widget build(BuildContext context) {
@@ -922,7 +1081,12 @@ class _DetailCommentsPanel extends StatelessWidget {
               physics: const BouncingScrollPhysics(),
               itemCount: post.comments.length,
               itemBuilder: (context, index) {
-                return _PostCommentRow(comment: post.comments[index]);
+                final comment = post.comments[index];
+                return _PostCommentRow(
+                  comment: comment,
+                  onOpenProfile: () => onOpenProfile(comment),
+                  onReport: () => onReportComment(comment),
+                );
               },
               separatorBuilder: (context, index) {
                 return SizedBox(
@@ -1247,7 +1411,11 @@ class _PostUserHomePageState extends State<PostUserHomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _DetailAuthorBlock(post: _post, onFollow: _toggleFollow),
+                _DetailAuthorBlock(
+                  post: _post,
+                  onFollow: _toggleFollow,
+                  onOpenProfile: () {},
+                ),
                 const SizedBox(height: 18),
                 _ProfileSegmentedTabs(
                   selectedIndex: _selectedTab,
@@ -1955,16 +2123,27 @@ class _RankingList extends StatelessWidget {
 }
 
 class _PostCommentRow extends StatelessWidget {
-  const _PostCommentRow({required this.comment});
+  const _PostCommentRow({
+    required this.comment,
+    required this.onOpenProfile,
+    required this.onReport,
+  });
 
   final PostSharingComment comment;
+  final VoidCallback onOpenProfile;
+  final VoidCallback onReport;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _Avatar(assetPath: comment.avatarAsset, size: 32),
+        CupertinoButton(
+          minimumSize: Size.zero,
+          padding: EdgeInsets.zero,
+          onPressed: onOpenProfile,
+          child: _Avatar(assetPath: comment.avatarAsset, size: 32),
+        ),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -1973,14 +2152,22 @@ class _PostCommentRow extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      comment.authorName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _postText(context).copyWith(
-                        color: CupertinoColors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
+                    child: CupertinoButton(
+                      minimumSize: Size.zero,
+                      padding: EdgeInsets.zero,
+                      onPressed: onOpenProfile,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          comment.authorName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _postText(context).copyWith(
+                            color: CupertinoColors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1993,10 +2180,15 @@ class _PostCommentRow extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(
-                    CupertinoIcons.ellipsis_vertical,
-                    color: CupertinoColors.white.withValues(alpha: 0.72),
-                    size: 16,
+                  CupertinoButton(
+                    minimumSize: Size.zero,
+                    padding: EdgeInsets.zero,
+                    onPressed: onReport,
+                    child: Icon(
+                      CupertinoIcons.ellipsis_vertical,
+                      color: CupertinoColors.white.withValues(alpha: 0.72),
+                      size: 16,
+                    ),
                   ),
                 ],
               ),

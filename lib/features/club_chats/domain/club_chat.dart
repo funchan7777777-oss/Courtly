@@ -17,6 +17,7 @@ class ClubChatMessage {
 class ClubConversation {
   const ClubConversation({
     required this.id,
+    required this.userId,
     required this.playerName,
     required this.ageLabel,
     required this.avatarAsset,
@@ -28,6 +29,7 @@ class ClubConversation {
   });
 
   final String id;
+  final String userId;
   final String playerName;
   final String ageLabel;
   final String avatarAsset;
@@ -47,6 +49,7 @@ class ClubConversation {
 
   ClubConversation copyWith({
     String? id,
+    String? userId,
     String? playerName,
     String? ageLabel,
     String? avatarAsset,
@@ -58,6 +61,7 @@ class ClubConversation {
   }) {
     return ClubConversation(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       playerName: playerName ?? this.playerName,
       ageLabel: ageLabel ?? this.ageLabel,
       avatarAsset: avatarAsset ?? this.avatarAsset,
@@ -73,6 +77,7 @@ class ClubConversation {
 class ClubFriendRequest {
   const ClubFriendRequest({
     required this.id,
+    required this.userId,
     required this.playerName,
     required this.ageLabel,
     required this.avatarAsset,
@@ -81,6 +86,7 @@ class ClubFriendRequest {
   });
 
   final String id;
+  final String userId;
   final String playerName;
   final String ageLabel;
   final String avatarAsset;
@@ -89,6 +95,7 @@ class ClubFriendRequest {
 
   ClubFriendRequest copyWith({
     String? id,
+    String? userId,
     String? playerName,
     String? ageLabel,
     String? avatarAsset,
@@ -97,6 +104,7 @@ class ClubFriendRequest {
   }) {
     return ClubFriendRequest(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       playerName: playerName ?? this.playerName,
       ageLabel: ageLabel ?? this.ageLabel,
       avatarAsset: avatarAsset ?? this.avatarAsset,

@@ -1,5 +1,6 @@
 import 'package:courtly/features/post_sharing/domain/post_sharing_post.dart';
 import 'package:courtly/shared/data/courtly_media_assets.dart';
+import 'package:courtly/shared/social/courtly_user_directory.dart';
 
 abstract final class PostSharingSeed {
   static final List<PostSharingPost> openingPosts = List.generate(
@@ -13,6 +14,7 @@ abstract final class PostSharingSeed {
 
       return PostSharingPost(
         id: 'post-${(index + 1).toString().padLeft(2, '0')}',
+        authorId: CourtlyUserDirectory.idFromName(author),
         authorName: author,
         createdAtLabel:
             '2025/11/${(index + 1).toString().padLeft(2, '0')} 08:45',
@@ -21,15 +23,19 @@ abstract final class PostSharingSeed {
         avatarAsset: avatar,
         likes: 96 + (index * 37),
         isLiked: index.isEven,
-        isFollowed: index % 3 == 0,
+        isFollowed: false,
         comments: [
           PostSharingComment(
+            id: 'post-${(index + 1).toString().padLeft(2, '0')}-comment-1',
+            authorId: CourtlyUserDirectory.idFromName(commentAuthor),
             authorName: commentAuthor,
             createdAtLabel: '08:${(40 + index).toString().padLeft(2, '0')}',
             body: _commentBodies[index % _commentBodies.length],
             avatarAsset: commentAvatar,
           ),
           PostSharingComment(
+            id: 'post-${(index + 1).toString().padLeft(2, '0')}-comment-2',
+            authorId: CourtlyUserDirectory.idFromName('Court Partner'),
             authorName: 'Court Partner',
             createdAtLabel: '09:${(10 + index).toString().padLeft(2, '0')}',
             body: 'Saving this tennis note for the next practice block.',

@@ -1,9 +1,16 @@
 import 'dart:async';
 
+import 'package:camera/camera.dart';
 import 'package:courtly/features/club_chats/data/club_chat_seed.dart';
 import 'package:courtly/features/club_chats/domain/club_chat.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
+import 'package:courtly/shared/social/courtly_moderation.dart';
+import 'package:courtly/shared/social/courtly_social_store.dart';
+import 'package:courtly/shared/social/courtly_user_directory.dart';
+import 'package:courtly/shared/social/courtly_user_profile.dart';
+import 'package:courtly/shared/social/courtly_user_profile_page.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 const Color _chatPurple = Color(0xFF1A004D);
 const Color _chatPurpleDeep = Color(0xFF130038);
@@ -12,6 +19,55 @@ const Color _chatPanelSoft = Color(0xFF522B88);
 const Color _chatPink = Color(0xFFFF2DD2);
 const Color _chatPinkSoft = Color(0xFFFF72DB);
 const Color _chatWhite = Color(0xFFFFFFFF);
+
+Future<void> openClubChatForProfile(
+  BuildContext context,
+  CourtlyUserProfile profile,
+) async {
+  final messages = await CourtlySocialStore.instance.loadMessages(profile.id);
+  if (!context.mounted) {
+    return;
+  }
+
+  await Navigator.of(context).push<ClubConversation>(
+    CupertinoPageRoute<ClubConversation>(
+      builder: (_) => ClubChatThreadPage(
+        conversation: ClubConversation(
+          id: 'chat-${profile.id}',
+          userId: profile.id,
+          playerName: profile.name,
+          ageLabel: profile.ageLabel,
+          avatarAsset: profile.avatarAsset,
+          heroAsset: profile.heroAsset,
+          online: false,
+          unreadCount: 0,
+          lastTimeLabel: messages.isEmpty ? '' : messages.last.timeLabel,
+          messages: messages.map(_messageFromStored).toList(growable: false),
+        ),
+      ),
+    ),
+  );
+}
+
+ClubChatMessage _messageFromStored(CourtlyStoredMessage message) {
+  return ClubChatMessage(
+    id: message.id,
+    senderName: message.senderName,
+    body: message.body,
+    timeLabel: message.timeLabel,
+    isMine: message.isMine,
+  );
+}
+
+CourtlyStoredMessage _messageToStored(ClubChatMessage message) {
+  return CourtlyStoredMessage(
+    id: message.id,
+    senderName: message.senderName,
+    body: message.body,
+    timeLabel: message.timeLabel,
+    isMine: message.isMine,
+  );
+}
 
 class ClubChatsView extends StatefulWidget {
   const ClubChatsView({super.key});
@@ -27,6 +83,13 @@ class _ClubChatsViewState extends State<ClubChatsView> {
   List<ClubConversation> _conversations = List<ClubConversation>.of(
     ClubChatSeed.openingConversations,
   );
+  Set<String> _blockedUserIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadLocalState());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,11 +155,11 @@ class _ClubChatsViewState extends State<ClubChatsView> {
                   artAsset: 'assets/images/Sparring.png',
                   artWidth: 116,
                   artHeight: 28,
-                  trailing: '${_conversations.length} chats',
+                  trailing: '${_visibleConversations.length} chats',
                 ),
               ),
             ),
-            if (_conversations.isEmpty)
+            if (_visibleConversations.isEmpty)
               const SliverFillRemaining(
                 hasScrollBody: false,
                 child: Padding(
@@ -106,16 +169,16 @@ class _ClubChatsViewState extends State<ClubChatsView> {
               )
             else
               SliverList.separated(
-                itemCount: _conversations.length,
+                itemCount: _visibleConversations.length,
                 itemBuilder: (context, index) {
-                  final conversation = _conversations[index];
+                  final conversation = _visibleConversations[index];
 
                   return Padding(
                     padding: EdgeInsets.fromLTRB(
                       22,
                       0,
                       22,
-                      index == _conversations.length - 1 ? 122 : 0,
+                      index == _visibleConversations.length - 1 ? 122 : 0,
                     ),
                     child: Dismissible(
                       key: ValueKey(conversation.id),
@@ -140,6 +203,55 @@ class _ClubChatsViewState extends State<ClubChatsView> {
         ),
       ),
     );
+  }
+
+  List<ClubConversation> get _visibleConversations {
+    return _conversations
+        .where((conversation) => !_blockedUserIds.contains(conversation.userId))
+        .toList(growable: false);
+  }
+
+  Future<void> _loadLocalState() async {
+    final store = CourtlySocialStore.instance;
+    final blocked = await store.blockedUserIds();
+    final messageUserIds = await store.messageUserIds();
+    final conversations = <ClubConversation>[];
+
+    for (final userId in messageUserIds) {
+      if (blocked.contains(userId)) {
+        continue;
+      }
+      final messages = await store.loadMessages(userId);
+      if (messages.isEmpty) {
+        continue;
+      }
+      final profile = CourtlyUserDirectory.byId(userId);
+      conversations.add(
+        ClubConversation(
+          id: 'chat-$userId',
+          userId: userId,
+          playerName: profile.name,
+          ageLabel: profile.ageLabel,
+          avatarAsset: profile.avatarAsset,
+          heroAsset: profile.heroAsset,
+          online: false,
+          unreadCount: 0,
+          lastTimeLabel: messages.last.timeLabel,
+          messages: messages.map(_messageFromStored).toList(growable: false),
+        ),
+      );
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _blockedUserIds = blocked;
+      _conversations = conversations;
+      _requests = _requests
+          .where((request) => !blocked.contains(request.userId))
+          .toList();
+    });
   }
 
   void _toggleRequestFollow(String requestId) {
@@ -635,10 +747,12 @@ class _ClubChatThreadPageState extends State<ClubChatThreadPage> {
               _ThreadHeader(
                 conversation: _conversation,
                 onBack: _close,
+                onOpenProfile: _openProfile,
                 onVideoCall: () => unawaited(_confirmAndOpenVideoCall()),
               ),
               _ThreadProfileCard(
                 conversation: _conversation,
+                onOpenProfile: _openProfile,
                 onVideoCall: () => unawaited(_confirmAndOpenVideoCall()),
               ),
               Expanded(
@@ -658,7 +772,7 @@ class _ClubChatThreadPageState extends State<ClubChatThreadPage> {
               ),
               _MessageComposer(
                 controller: _messageController,
-                onSubmitted: _sendMessage,
+                onSubmitted: () => unawaited(_sendMessage()),
               ),
             ],
           ),
@@ -667,9 +781,12 @@ class _ClubChatThreadPageState extends State<ClubChatThreadPage> {
     );
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final body = _messageController.text.trim();
     if (body.isEmpty) {
+      return;
+    }
+    if (!await _ensureMutualAccess('Messages require mutual follow')) {
       return;
     }
 
@@ -688,6 +805,10 @@ class _ClubChatThreadPageState extends State<ClubChatThreadPage> {
         lastTimeLabel: message.timeLabel,
       );
     });
+    await CourtlySocialStore.instance.saveMessages(
+      userId: _conversation.userId,
+      messages: _conversation.messages.map(_messageToStored).toList(),
+    );
     _messageController.clear();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -705,6 +826,10 @@ class _ClubChatThreadPageState extends State<ClubChatThreadPage> {
   }
 
   Future<void> _confirmAndOpenVideoCall() async {
+    if (!await _ensureMutualAccess('Video calls require mutual follow')) {
+      return;
+    }
+
     final confirmed = await showCupertinoDialog<bool>(
       context: context,
       barrierDismissible: true,
@@ -727,6 +852,47 @@ class _ClubChatThreadPageState extends State<ClubChatThreadPage> {
     );
   }
 
+  Future<bool> _ensureMutualAccess(String title) async {
+    final mutual = await CourtlySocialStore.instance.isMutualFollow(
+      _conversation.userId,
+    );
+    if (mutual) {
+      return true;
+    }
+    if (!mounted) {
+      return false;
+    }
+
+    await showCourtlyAccessDialog(
+      context: context,
+      title: title,
+      message:
+          'Courtly only unlocks private chat and video after both players follow each other. Send a follow request from the profile first.',
+    );
+    return false;
+  }
+
+  void _openProfile() {
+    final profile = CourtlyUserDirectory.fromIdentity(
+      name: _conversation.playerName,
+      avatarAsset: _conversation.avatarAsset,
+      heroAsset: _conversation.heroAsset,
+    );
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (_) => CourtlyUserProfilePage(
+          profile: profile,
+          onOpenChat: (_) {},
+          onModerated: (result) {
+            if (result.action == CourtlyModerationAction.block) {
+              Navigator.of(context).pop();
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   void _close() {
     Navigator.of(context).pop(_conversation);
   }
@@ -744,11 +910,13 @@ class _ThreadHeader extends StatelessWidget {
   const _ThreadHeader({
     required this.conversation,
     required this.onBack,
+    required this.onOpenProfile,
     required this.onVideoCall,
   });
 
   final ClubConversation conversation;
   final VoidCallback onBack;
+  final VoidCallback onOpenProfile;
   final VoidCallback onVideoCall;
 
   @override
@@ -764,14 +932,19 @@ class _ThreadHeader extends StatelessWidget {
               onPressed: onBack,
             ),
             Expanded(
-              child: Text(
-                conversation.playerName,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _clubTextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
+              child: CupertinoButton(
+                minimumSize: Size.zero,
+                padding: EdgeInsets.zero,
+                onPressed: onOpenProfile,
+                child: Text(
+                  conversation.playerName,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _clubTextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ),
@@ -789,10 +962,12 @@ class _ThreadHeader extends StatelessWidget {
 class _ThreadProfileCard extends StatelessWidget {
   const _ThreadProfileCard({
     required this.conversation,
+    required this.onOpenProfile,
     required this.onVideoCall,
   });
 
   final ClubConversation conversation;
+  final VoidCallback onOpenProfile;
   final VoidCallback onVideoCall;
 
   @override
@@ -801,10 +976,15 @@ class _ThreadProfileCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
       child: Column(
         children: [
-          _ClubAvatar(
-            assetPath: conversation.avatarAsset,
-            size: 86,
-            showGlow: conversation.online,
+          CupertinoButton(
+            minimumSize: Size.zero,
+            padding: EdgeInsets.zero,
+            onPressed: onOpenProfile,
+            child: _ClubAvatar(
+              assetPath: conversation.avatarAsset,
+              size: 86,
+              showGlow: conversation.online,
+            ),
           ),
           const SizedBox(height: 10),
           CupertinoButton(
@@ -967,6 +1147,21 @@ class _ClubVideoCallPageState extends State<ClubVideoCallPage> {
   bool _speakerOn = true;
   bool _muted = false;
   bool _cameraOn = true;
+  CameraController? _cameraController;
+  bool _cameraReady = false;
+  bool _permissionDenied = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_prepareCamera());
+  }
+
+  @override
+  void dispose() {
+    _cameraController?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1008,7 +1203,12 @@ class _ClubVideoCallPageState extends State<ClubVideoCallPage> {
           Positioned(
             right: 24,
             top: courtlySafeTop(context, 84),
-            child: _VideoPreview(assetPath: conversation.avatarAsset),
+            child: _VideoPreview(
+              controller: _cameraController,
+              cameraReady: _cameraReady,
+              cameraOn: _cameraOn,
+              permissionDenied: _permissionDenied,
+            ),
           ),
           Positioned(
             left: 24,
@@ -1029,6 +1229,45 @@ class _ClubVideoCallPageState extends State<ClubVideoCallPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _prepareCamera() async {
+    final cameraStatus = await Permission.camera.request();
+    final microphoneStatus = await Permission.microphone.request();
+    if (!cameraStatus.isGranted || !microphoneStatus.isGranted) {
+      if (mounted) {
+        setState(() => _permissionDenied = true);
+      }
+      return;
+    }
+
+    final cameras = await availableCameras();
+    if (cameras.isEmpty) {
+      if (mounted) {
+        setState(() => _permissionDenied = true);
+      }
+      return;
+    }
+
+    final frontCamera = cameras.firstWhere(
+      (camera) => camera.lensDirection == CameraLensDirection.front,
+      orElse: () => cameras.first,
+    );
+    final controller = CameraController(
+      frontCamera,
+      ResolutionPreset.medium,
+      enableAudio: true,
+    );
+    await controller.initialize();
+    if (!mounted) {
+      await controller.dispose();
+      return;
+    }
+
+    setState(() {
+      _cameraController = controller;
+      _cameraReady = true;
+    });
   }
 }
 
@@ -1081,9 +1320,17 @@ class _VideoCallHeader extends StatelessWidget {
 }
 
 class _VideoPreview extends StatelessWidget {
-  const _VideoPreview({required this.assetPath});
+  const _VideoPreview({
+    required this.controller,
+    required this.cameraReady,
+    required this.cameraOn,
+    required this.permissionDenied,
+  });
 
-  final String assetPath;
+  final CameraController? controller;
+  final bool cameraReady;
+  final bool cameraOn;
+  final bool permissionDenied;
 
   @override
   Widget build(BuildContext context) {
@@ -1103,7 +1350,20 @@ class _VideoPreview extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Image.asset(assetPath, fit: BoxFit.cover),
+        child: cameraReady && cameraOn && controller != null
+            ? CameraPreview(controller!)
+            : DecoratedBox(
+                decoration: const BoxDecoration(color: Color(0xFF1A004D)),
+                child: Center(
+                  child: Icon(
+                    permissionDenied
+                        ? CupertinoIcons.lock_fill
+                        : CupertinoIcons.video_camera,
+                    color: _chatPinkSoft,
+                    size: 28,
+                  ),
+                ),
+              ),
       ),
     );
   }

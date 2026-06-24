@@ -1,10 +1,12 @@
 import 'package:courtly/features/court_reels/domain/court_reel.dart';
 import 'package:courtly/shared/data/courtly_media_assets.dart';
+import 'package:courtly/shared/social/courtly_user_directory.dart';
 
 abstract final class CourtReelSeed {
   static final List<CourtReel> openingFeed = [
     CourtReel(
       id: 'reel-forehand-reset',
+      userId: CourtlyUserDirectory.idFromName('Hollis Park'),
       playerName: 'Hollis',
       gender: CourtReelGender.female,
       createdAtLabel: '2025-09-23 12:24',
@@ -19,12 +21,16 @@ abstract final class CourtReelSeed {
       isFollowed: false,
       comments: [
         CourtReelComment(
+          id: 'reel-forehand-reset-comment-1',
+          authorId: CourtlyUserDirectory.idFromName('Evan Perkins'),
           author: 'Evan Perkins',
           timeLabel: '08:45',
           message: 'That recovery step after the swing is the best part.',
           avatarAsset: CourtlyMediaAssets.menHeads[0],
         ),
         CourtReelComment(
+          id: 'reel-forehand-reset-comment-2',
+          authorId: CourtlyUserDirectory.idFromName('Mia Chen'),
           author: 'Mia Chen',
           timeLabel: '08:52',
           message: 'Your contact point is so clean. Saving this for practice.',
@@ -34,6 +40,7 @@ abstract final class CourtReelSeed {
     ),
     CourtReel(
       id: 'reel-night-serve',
+      userId: CourtlyUserDirectory.idFromName('Mina Cross'),
       playerName: 'Mina',
       gender: CourtReelGender.female,
       createdAtLabel: '2025-09-23 15:08',
@@ -48,6 +55,8 @@ abstract final class CourtReelSeed {
       isFollowed: false,
       comments: [
         CourtReelComment(
+          id: 'reel-night-serve-comment-1',
+          authorId: CourtlyUserDirectory.idFromName('Aria Novak'),
           author: 'Aria Novak',
           timeLabel: '15:18',
           message: 'The tempo drill looks useful before match play.',
@@ -57,6 +66,7 @@ abstract final class CourtReelSeed {
     ),
     CourtReel(
       id: 'reel-baseline-run',
+      userId: CourtlyUserDirectory.idFromName('Sofia Lane'),
       playerName: 'Sofia',
       gender: CourtReelGender.female,
       createdAtLabel: '2025-09-24 09:41',
@@ -70,6 +80,8 @@ abstract final class CourtReelSeed {
       isFollowed: false,
       comments: [
         CourtReelComment(
+          id: 'reel-baseline-run-comment-1',
+          authorId: CourtlyUserDirectory.idFromName('Grace Liu'),
           author: 'Grace Liu',
           timeLabel: '09:48',
           message: 'The palette and court mood match perfectly.',
@@ -79,6 +91,7 @@ abstract final class CourtReelSeed {
     ),
     CourtReel(
       id: 'reel-volley-touch',
+      userId: CourtlyUserDirectory.idFromName('Noah Hart'),
       playerName: 'Noah',
       gender: CourtReelGender.male,
       createdAtLabel: '2025-09-24 18:30',
@@ -92,6 +105,8 @@ abstract final class CourtReelSeed {
       isFollowed: false,
       comments: [
         CourtReelComment(
+          id: 'reel-volley-touch-comment-1',
+          authorId: CourtlyUserDirectory.idFromName('Claire West'),
           author: 'Claire West',
           timeLabel: '18:47',
           message: 'Great reminder to move through the ball.',
@@ -101,6 +116,7 @@ abstract final class CourtReelSeed {
     ),
     CourtReel(
       id: 'reel-lob-pattern',
+      userId: CourtlyUserDirectory.idFromName('Iris Stone'),
       playerName: 'Iris',
       gender: CourtReelGender.female,
       createdAtLabel: '2025-09-25 07:16',
@@ -114,6 +130,8 @@ abstract final class CourtReelSeed {
       isFollowed: false,
       comments: [
         CourtReelComment(
+          id: 'reel-lob-pattern-comment-1',
+          authorId: CourtlyUserDirectory.idFromName('Miles Young'),
           author: 'Miles Young',
           timeLabel: '07:31',
           message: 'That height control is exactly what I need.',
@@ -123,6 +141,7 @@ abstract final class CourtReelSeed {
     ),
     CourtReel(
       id: 'reel-spin-step',
+      userId: CourtlyUserDirectory.idFromName('Leo Grant'),
       playerName: 'Leo',
       gender: CourtReelGender.male,
       createdAtLabel: '2025-09-25 10:28',
@@ -136,6 +155,8 @@ abstract final class CourtReelSeed {
       isFollowed: false,
       comments: [
         CourtReelComment(
+          id: 'reel-spin-step-comment-1',
+          authorId: CourtlyUserDirectory.idFromName('Rina Holt'),
           author: 'Rina Holt',
           timeLabel: '10:40',
           message: 'The footwork cue is easy to follow.',
@@ -145,6 +166,7 @@ abstract final class CourtReelSeed {
     ),
     CourtReel(
       id: 'reel-doubles-call',
+      userId: CourtlyUserDirectory.idFromName('Arden Cole'),
       playerName: 'Arden',
       gender: CourtReelGender.male,
       createdAtLabel: '2025-09-26 13:05',
@@ -158,6 +180,8 @@ abstract final class CourtReelSeed {
       isFollowed: false,
       comments: [
         CourtReelComment(
+          id: 'reel-doubles-call-comment-1',
+          authorId: CourtlyUserDirectory.idFromName('Nina Green'),
           author: 'Nina Green',
           timeLabel: '13:20',
           message: 'That partner call is so sharp.',
@@ -167,6 +191,7 @@ abstract final class CourtReelSeed {
     ),
     CourtReel(
       id: 'reel-drop-shot',
+      userId: CourtlyUserDirectory.idFromName('Elena Cruz'),
       playerName: 'Elena',
       gender: CourtReelGender.female,
       createdAtLabel: '2025-09-26 17:44',
@@ -180,6 +205,8 @@ abstract final class CourtReelSeed {
       isFollowed: false,
       comments: [
         CourtReelComment(
+          id: 'reel-drop-shot-comment-1',
+          authorId: CourtlyUserDirectory.idFromName('Terry George'),
           author: 'Terry George',
           timeLabel: '17:55',
           message: 'The disguise makes the whole point work.',
@@ -189,6 +216,7 @@ abstract final class CourtReelSeed {
     ),
     CourtReel(
       id: 'reel-return-read',
+      userId: CourtlyUserDirectory.idFromName('Kai Fox'),
       playerName: 'Kai',
       gender: CourtReelGender.male,
       createdAtLabel: '2025-09-27 08:12',
@@ -202,6 +230,8 @@ abstract final class CourtReelSeed {
       isFollowed: false,
       comments: [
         CourtReelComment(
+          id: 'reel-return-read-comment-1',
+          authorId: CourtlyUserDirectory.idFromName('Lena Brooks'),
           author: 'Lena Brooks',
           timeLabel: '08:19',
           message: 'The early read changes everything.',
@@ -211,6 +241,7 @@ abstract final class CourtReelSeed {
     ),
     CourtReel(
       id: 'reel-court-card',
+      userId: CourtlyUserDirectory.idFromName('Tessa Ward'),
       playerName: 'Tessa',
       gender: CourtReelGender.female,
       createdAtLabel: '2025-09-27 15:26',
@@ -225,6 +256,8 @@ abstract final class CourtReelSeed {
       isFollowed: false,
       comments: [
         CourtReelComment(
+          id: 'reel-court-card-comment-1',
+          authorId: CourtlyUserDirectory.idFromName('Jon Bell'),
           author: 'Jon Bell',
           timeLabel: '15:36',
           message: 'This one feels ready for the club wall.',
@@ -234,6 +267,7 @@ abstract final class CourtReelSeed {
     ),
     CourtReel(
       id: 'reel-serve-wide',
+      userId: CourtlyUserDirectory.idFromName('Owen Reed'),
       playerName: 'Owen',
       gender: CourtReelGender.male,
       createdAtLabel: '2025-09-28 12:03',
@@ -247,6 +281,8 @@ abstract final class CourtReelSeed {
       isFollowed: false,
       comments: [
         CourtReelComment(
+          id: 'reel-serve-wide-comment-1',
+          authorId: CourtlyUserDirectory.idFromName('Avery Stone'),
           author: 'Avery Stone',
           timeLabel: '12:20',
           message: 'The target discipline is strong.',
@@ -256,6 +292,7 @@ abstract final class CourtReelSeed {
     ),
     CourtReel(
       id: 'reel-match-point',
+      userId: CourtlyUserDirectory.idFromName('Mara Cole'),
       playerName: 'Mara',
       gender: CourtReelGender.female,
       createdAtLabel: '2025-09-28 19:18',
@@ -269,6 +306,8 @@ abstract final class CourtReelSeed {
       isFollowed: false,
       comments: [
         CourtReelComment(
+          id: 'reel-match-point-comment-1',
+          authorId: CourtlyUserDirectory.idFromName('Brent Fox'),
           author: 'Brent Fox',
           timeLabel: '19:30',
           message: 'Calm footwork under pressure.',

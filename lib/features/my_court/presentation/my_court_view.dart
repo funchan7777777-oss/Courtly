@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:courtly/features/club_chats/domain/club_chat.dart';
 import 'package:courtly/features/club_chats/presentation/club_chats_view.dart';
 import 'package:courtly/features/first_rally/data/rally_session_vault.dart';
 import 'package:courtly/features/first_rally/domain/rally_entry_draft.dart';
 import 'package:courtly/features/first_rally/presentation/pages/rally_welcome_choice_page.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
+import 'package:courtly/shared/social/courtly_user_directory.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -1048,29 +1048,12 @@ class _MyCourtPeoplePageState extends State<_MyCourtPeoplePage> {
   }
 
   Future<void> _openChat(_CourtPerson person) {
-    return Navigator.of(context).push<void>(
-      CupertinoPageRoute<void>(
-        builder: (_) => ClubChatThreadPage(
-          conversation: ClubConversation(
-            id: '${person.id}-friend-chat',
-            playerName: person.name,
-            ageLabel: person.ageLabel,
-            avatarAsset: person.avatarAsset,
-            heroAsset: person.heroAsset,
-            online: true,
-            unreadCount: 0,
-            lastTimeLabel: 'Now',
-            messages: [
-              ClubChatMessage(
-                id: '${person.id}-hello',
-                senderName: person.name,
-                body: 'Ready to plan our next court session?',
-                timeLabel: 'Now',
-                isMine: false,
-              ),
-            ],
-          ),
-        ),
+    return openClubChatForProfile(
+      context,
+      CourtlyUserDirectory.fromIdentity(
+        name: person.name,
+        avatarAsset: person.avatarAsset,
+        heroAsset: person.heroAsset,
       ),
     );
   }

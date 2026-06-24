@@ -1,6 +1,7 @@
 class PostSharingPost {
   const PostSharingPost({
     required this.id,
+    required this.authorId,
     required this.authorName,
     required this.createdAtLabel,
     required this.body,
@@ -14,6 +15,7 @@ class PostSharingPost {
   });
 
   final String id;
+  final String authorId;
   final String authorName;
   final String createdAtLabel;
   final String body;
@@ -27,6 +29,7 @@ class PostSharingPost {
 
   PostSharingPost copyWith({
     String? id,
+    String? authorId,
     String? authorName,
     String? createdAtLabel,
     String? body,
@@ -40,6 +43,7 @@ class PostSharingPost {
   }) {
     return PostSharingPost(
       id: id ?? this.id,
+      authorId: authorId ?? this.authorId,
       authorName: authorName ?? this.authorName,
       createdAtLabel: createdAtLabel ?? this.createdAtLabel,
       body: body ?? this.body,
@@ -56,12 +60,16 @@ class PostSharingPost {
 
 class PostSharingComment {
   const PostSharingComment({
+    required this.id,
+    required this.authorId,
     required this.authorName,
     required this.createdAtLabel,
     required this.body,
     required this.avatarAsset,
   });
 
+  final String id;
+  final String authorId;
   final String authorName;
   final String createdAtLabel;
   final String body;
