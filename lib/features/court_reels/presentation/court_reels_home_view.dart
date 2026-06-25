@@ -12,6 +12,8 @@ import 'package:courtly/shared/social/courtly_social_store.dart';
 import 'package:courtly/shared/social/courtly_user_directory.dart';
 import 'package:courtly/shared/social/courtly_user_profile.dart';
 import 'package:courtly/shared/social/courtly_user_profile_page.dart';
+import 'package:courtly/shared/wallet/courtly_coin_gate.dart';
+import 'package:courtly/shared/wallet/courtly_wallet_store.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
@@ -1234,6 +1236,14 @@ class _CourtReelReleasePageState extends State<CourtReelReleasePage> {
     if (!mounted) {
       return;
     }
+    final paid = await showCourtlyCoinSpendGate(
+      context: context,
+      feature: CourtlyCoinFeature.publishReel,
+    );
+    if (!paid || !mounted) {
+      return;
+    }
+
     await showCourtlyReviewDialog(context, contentLabel: 'video reel');
     if (!mounted) {
       return;

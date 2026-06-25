@@ -9,9 +9,11 @@ import 'package:courtly/features/first_rally/domain/rally_entry_draft.dart';
 import 'package:courtly/features/first_rally/presentation/pages/rally_policy_webview_page.dart';
 import 'package:courtly/features/first_rally/presentation/pages/rally_signin_page.dart';
 import 'package:courtly/features/first_rally/presentation/pages/rally_welcome_choice_page.dart';
+import 'package:courtly/features/my_court/presentation/courtly_wallet_page.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:courtly/shared/social/courtly_social_store.dart';
 import 'package:courtly/shared/social/courtly_user_directory.dart';
+import 'package:courtly/shared/wallet/courtly_wallet_store.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
@@ -34,9 +36,10 @@ class MyCourtView extends StatefulWidget {
 
 class _MyCourtViewState extends State<MyCourtView> {
   final RallySessionVault _sessionVault = const RallySessionVault();
+  final CourtlyWalletStore _walletStore = CourtlyWalletStore.instance;
   _MyCourtProfile _profile = _MyCourtProfile.defaults();
   _GalleryMode _galleryMode = _GalleryMode.videos;
-  int _walletCoins = 1231;
+  int _walletCoins = 0;
   List<CourtlyPublishedReel> _publishedReels = const [];
   List<CourtlyPublishedPost> _publishedPosts = const [];
 
@@ -50,8 +53,10 @@ class _MyCourtViewState extends State<MyCourtView> {
     CourtlySocialStore.instance.publishedContentVersion.addListener(
       _handlePublishedContentChanged,
     );
+    _walletStore.balanceVersion.addListener(_handleWalletBalanceChanged);
     unawaited(_loadStoredProfile());
     unawaited(_loadPublishedContent());
+    unawaited(_loadWalletBalance());
   }
 
   @override
@@ -59,6 +64,7 @@ class _MyCourtViewState extends State<MyCourtView> {
     CourtlySocialStore.instance.publishedContentVersion.removeListener(
       _handlePublishedContentChanged,
     );
+    _walletStore.balanceVersion.removeListener(_handleWalletBalanceChanged);
     super.dispose();
   }
 
@@ -143,6 +149,21 @@ class _MyCourtViewState extends State<MyCourtView> {
       _publishedReels = reels;
       _publishedPosts = posts;
     });
+  }
+
+  Future<void> _loadWalletBalance() async {
+    final balance = await _walletStore.loadBalance();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _walletCoins = balance);
+  }
+
+  void _handleWalletBalanceChanged() {
+    if (!mounted) {
+      return;
+    }
+    unawaited(_loadWalletBalance());
   }
 
   void _handlePublishedContentChanged() {
@@ -234,17 +255,12 @@ class _MyCourtViewState extends State<MyCourtView> {
   }
 
   Future<void> _openWallet() async {
-    final nextBalance = await Navigator.of(context).push<int>(
-      CupertinoPageRoute<int>(
-        builder: (_) => _MyCourtWalletPage(initialCoins: _walletCoins),
-      ),
+    await Navigator.of(context).push<int>(
+      CupertinoPageRoute<int>(builder: (_) => const CourtlyWalletPage()),
     );
-
-    if (nextBalance == null || !mounted) {
-      return;
+    if (mounted) {
+      unawaited(_loadWalletBalance());
     }
-
-    setState(() => _walletCoins = nextBalance);
   }
 
   Future<void> _openPeople(_PeopleListKind kind) async {
@@ -1660,137 +1676,6 @@ class _MyCourtPeoplePageState extends State<_MyCourtPeoplePage> {
 
   void _close() {
     Navigator.of(context).pop(_people);
-  }
-}
-
-class _MyCourtWalletPage extends StatefulWidget {
-  const _MyCourtWalletPage({required this.initialCoins});
-
-  final int initialCoins;
-
-  @override
-  State<_MyCourtWalletPage> createState() => _MyCourtWalletPageState();
-}
-
-class _MyCourtWalletPageState extends State<_MyCourtWalletPage> {
-  late int _coins;
-
-  @override
-  void initState() {
-    super.initState();
-    _coins = widget.initialCoins;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      child: _MyCourtBackdrop(
-        useWalletBackdrop: true,
-        child: Column(
-          children: [
-            _SimpleHeader(
-              title: 'Wallet',
-              onBack: () => Navigator.of(context).pop(_coins),
-            ),
-            const SizedBox(height: 34),
-            Image.asset(
-              'assets/images/Clinic.png',
-              width: 172,
-              height: 172,
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _formatCoins(_coins),
-              style: _myTextStyle(fontSize: 28, fontWeight: FontWeight.w900),
-            ),
-            Text(
-              'balance',
-              style: _myTextStyle(
-                color: _courtWhite.withValues(alpha: 0.72),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 30),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: _WalletPackRow(
-                coins: 1231,
-                price: r'$9.99',
-                onPressed: _buyPack,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _buyPack() {
-    setState(() => _coins += 1231);
-  }
-}
-
-class _WalletPackRow extends StatelessWidget {
-  const _WalletPackRow({
-    required this.coins,
-    required this.price,
-    required this.onPressed,
-  });
-
-  final int coins;
-  final String price;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoButton(
-      minimumSize: Size.zero,
-      padding: EdgeInsets.zero,
-      onPressed: onPressed,
-      child: Container(
-        height: 58,
-        decoration: BoxDecoration(
-          color: _courtPanel.withValues(alpha: 0.96),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: [
-            Image.asset(
-              'assets/images/Clinic.png',
-              width: 38,
-              height: 38,
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              '${_formatCoins(coins)} coins',
-              style: _myTextStyle(fontSize: 15, fontWeight: FontWeight.w900),
-            ),
-            const Spacer(),
-            Container(
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: _courtPink,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Center(
-                child: Text(
-                  price,
-                  style: _myTextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

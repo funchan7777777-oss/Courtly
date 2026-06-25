@@ -1,5 +1,6 @@
 import 'package:courtly/features/first_rally/domain/rally_entry_draft.dart';
 import 'package:courtly/shared/social/courtly_social_store.dart';
+import 'package:courtly/shared/wallet/courtly_wallet_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RallyStoredSession {
@@ -218,6 +219,7 @@ class RallySessionVault {
       preferences.remove(_appleIdentityNameKey),
       preferences.remove(_birthdateMarkerKey),
       preferences.remove(_playStyleKey),
+      CourtlyWalletStore.instance.clearLocalWallet(),
     ]);
   }
 }
