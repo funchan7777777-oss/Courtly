@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:courtly/atelier/theme/courtly_font_families.dart';
 import 'package:courtly/features/club_chats/presentation/club_chats_view.dart';
 import 'package:courtly/features/court_reels/presentation/court_reels_home_view.dart';
 import 'package:courtly/features/my_court/presentation/my_court_view.dart';
@@ -342,6 +343,7 @@ TextStyle _welcomeText({
 }) {
   return TextStyle(
     color: color,
+    fontFamily: CourtlyFontFamilies.athletic,
     fontSize: fontSize,
     height: 1,
     fontWeight: fontWeight,

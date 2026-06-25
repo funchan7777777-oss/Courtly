@@ -32,3 +32,15 @@ flutter:
     - assets/images/head/women/
     - assets/images/post/
     - assets/videos/
+  fonts:
+    - family: CourtlyInter
+      fonts:
+        - asset: assets/fonts/Inter-Variable.ttf
+    - family: CourtlyPlayfair
+      fonts:
+        - asset: assets/fonts/PlayfairDisplay-Variable.ttf
+        - asset: assets/fonts/PlayfairDisplay-Italic-Variable.ttf
+          style: italic
+    - family: CourtlyOswald
+      fonts:
+        - asset: assets/fonts/Oswald-Variable.ttf

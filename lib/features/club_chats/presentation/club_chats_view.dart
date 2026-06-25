@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:camera/camera.dart';
+import 'package:courtly/atelier/theme/courtly_font_families.dart';
 import 'package:courtly/features/club_chats/data/club_chat_seed.dart';
 import 'package:courtly/features/club_chats/domain/club_chat.dart';
 import 'package:courtly/features/court_reels/data/court_reel_seed.dart';
 import 'package:courtly/features/post_sharing/data/post_sharing_seed.dart';
+import 'package:courtly/shared/presentation/courtly_profile_image.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:courtly/shared/social/courtly_moderation.dart';
 import 'package:courtly/shared/social/courtly_social_store.dart';
@@ -2799,23 +2801,21 @@ class _ClubAvatar extends StatelessWidget {
         ],
       ),
       child: ClipOval(
-        child: Image.asset(
-          assetPath,
+        child: CourtlyProfileImage(
+          imagePath: assetPath,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [_chatPink, _chatPanelSoft]),
+          fallback: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [_chatPink, _chatPanelSoft]),
+            ),
+            child: Center(
+              child: Icon(
+                CupertinoIcons.person_fill,
+                color: _chatWhite,
+                size: size * 0.48,
               ),
-              child: Center(
-                child: Icon(
-                  CupertinoIcons.person_fill,
-                  color: _chatWhite,
-                  size: size * 0.48,
-                ),
-              ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );
@@ -2966,6 +2966,7 @@ TextStyle _clubTextStyle({
 }) {
   return TextStyle(
     color: color,
+    fontFamily: CourtlyFontFamilies.ui,
     fontSize: fontSize,
     height: height,
     fontWeight: fontWeight,

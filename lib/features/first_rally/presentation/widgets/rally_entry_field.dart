@@ -1,3 +1,4 @@
+import 'package:courtly/atelier/theme/courtly_font_families.dart';
 import 'package:courtly/features/first_rally/data/rally_asset_ledger.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -71,12 +72,14 @@ class _RallyEntryFieldState extends State<RallyEntryField> {
         placeholder: widget.placeholder,
         placeholderStyle: TextStyle(
           color: CupertinoColors.white.withValues(alpha: 0.42),
+          fontFamily: CourtlyFontFamilies.ui,
           fontSize: 12,
           fontWeight: FontWeight.w500,
           letterSpacing: 0,
         ),
         style: const TextStyle(
           color: CupertinoColors.white,
+          fontFamily: CourtlyFontFamilies.ui,
           fontSize: 14,
           fontWeight: FontWeight.w600,
           letterSpacing: 0,

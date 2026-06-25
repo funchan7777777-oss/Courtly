@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:courtly/atelier/theme/courtly_font_families.dart';
+import 'package:courtly/shared/presentation/courtly_profile_image.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:courtly/shared/social/courtly_moderation.dart';
 import 'package:courtly/shared/social/courtly_social_store.dart';
@@ -58,8 +60,8 @@ class _CourtlyUserProfilePageState extends State<CourtlyUserProfilePage> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            profile.avatarAsset,
+          CourtlyProfileImage(
+            imagePath: profile.avatarAsset,
             fit: BoxFit.cover,
             alignment: Alignment.center,
           ),
@@ -636,6 +638,7 @@ TextStyle _profileTextStyle({
 }) {
   return TextStyle(
     color: color,
+    fontFamily: CourtlyFontFamilies.ui,
     fontSize: fontSize,
     height: height,
     fontWeight: fontWeight,

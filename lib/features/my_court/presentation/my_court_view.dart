@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:courtly/atelier/theme/courtly_font_families.dart';
 import 'package:courtly/features/club_chats/presentation/club_chats_view.dart';
 import 'package:courtly/features/first_rally/data/rally_asset_ledger.dart';
 import 'package:courtly/features/first_rally/data/rally_policy_links.dart';
@@ -10,7 +11,9 @@ import 'package:courtly/features/first_rally/presentation/pages/rally_policy_web
 import 'package:courtly/features/first_rally/presentation/pages/rally_signin_page.dart';
 import 'package:courtly/features/first_rally/presentation/pages/rally_welcome_choice_page.dart';
 import 'package:courtly/features/my_court/presentation/courtly_wallet_page.dart';
+import 'package:courtly/shared/presentation/courtly_profile_image.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
+import 'package:courtly/shared/social/courtly_current_user_profile.dart';
 import 'package:courtly/shared/social/courtly_social_store.dart';
 import 'package:courtly/shared/social/courtly_user_directory.dart';
 import 'package:courtly/shared/wallet/courtly_wallet_store.dart';
@@ -2695,17 +2698,11 @@ class _ProfileImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imagePath = _usableProfileImagePath(path);
-    if (imagePath != null && imagePath.startsWith('assets/')) {
-      return Image.asset(imagePath, fit: BoxFit.cover);
-    }
-    if (imagePath != null) {
-      final file = File(imagePath);
-      if (file.existsSync()) {
-        return Image.file(file, fit: BoxFit.cover);
-      }
-    }
-
-    return const _ProfilePlaceholder();
+    return CourtlyProfileImage(
+      imagePath: imagePath,
+      fit: BoxFit.cover,
+      fallback: const _ProfilePlaceholder(),
+    );
   }
 }
 
@@ -2830,6 +2827,7 @@ class _MyCourtProfile {
       fans: 0,
       follows: 0,
       friends: 0,
+      avatarImagePath: CourtlyCurrentUserProfile.fallbackAvatarPath,
     );
   }
 
@@ -2950,8 +2948,7 @@ String? _usableProfileImagePath(String? path) {
   final imagePath = path?.trim();
   if (imagePath == null ||
       imagePath.isEmpty ||
-      imagePath == RallyAssetLedger.spotlightMark ||
-      imagePath.startsWith('assets/images/head/')) {
+      imagePath == RallyAssetLedger.spotlightMark) {
     return null;
   }
 
@@ -2985,6 +2982,7 @@ TextStyle _myTextStyle({
 }) {
   return TextStyle(
     color: color,
+    fontFamily: CourtlyFontFamilies.ui,
     fontSize: fontSize,
     height: height,
     fontWeight: fontWeight,

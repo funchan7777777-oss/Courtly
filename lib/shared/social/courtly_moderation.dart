@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:courtly/atelier/theme/courtly_font_families.dart';
 import 'package:courtly/shared/social/courtly_social_store.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -856,6 +857,7 @@ TextStyle _sheetTextStyle({
 }) {
   return TextStyle(
     color: color,
+    fontFamily: CourtlyFontFamilies.ui,
     fontSize: fontSize,
     height: height,
     fontWeight: fontWeight,

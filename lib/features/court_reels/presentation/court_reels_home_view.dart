@@ -6,7 +6,9 @@ import 'package:courtly/features/court_reels/data/court_reel_seed.dart';
 import 'package:courtly/features/court_reels/domain/court_reel.dart';
 import 'package:courtly/features/post_sharing/data/post_sharing_seed.dart';
 import 'package:courtly/shared/data/courtly_media_assets.dart';
+import 'package:courtly/shared/presentation/courtly_profile_image.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
+import 'package:courtly/shared/social/courtly_current_user_profile.dart';
 import 'package:courtly/shared/social/courtly_moderation.dart';
 import 'package:courtly/shared/social/courtly_social_store.dart';
 import 'package:courtly/shared/social/courtly_user_directory.dart';
@@ -298,13 +300,20 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
   }
 
   void _openCommentProfile(CourtReelComment comment) {
-    unawaited(
-      _openUserProfile(
-        CourtlyUserDirectory.fromIdentity(
-          id: comment.authorId,
-          name: comment.author,
-          avatarAsset: comment.avatarAsset,
-        ),
+    unawaited(_openCommentUserProfile(comment));
+  }
+
+  Future<void> _openCommentUserProfile(CourtReelComment comment) async {
+    final isCurrentUser = comment.authorId == CourtlyCurrentUserProfile.userId;
+    final currentUser = isCurrentUser
+        ? await loadCourtlyCurrentUserProfile()
+        : null;
+
+    await _openUserProfile(
+      CourtlyUserDirectory.fromIdentity(
+        id: comment.authorId,
+        name: currentUser?.displayName ?? comment.author,
+        avatarAsset: currentUser?.avatarPath ?? comment.avatarAsset,
       ),
     );
   }
@@ -966,11 +975,10 @@ class _ReelCaptionBlock extends StatelessWidget {
               padding: EdgeInsets.zero,
               onPressed: onOpenProfile,
               child: ClipOval(
-                child: Image.asset(
-                  reel.avatarAsset,
+                child: CourtlyProfileImage(
+                  imagePath: reel.avatarAsset,
                   width: 54,
                   height: 54,
-                  fit: BoxFit.cover,
                 ),
               ),
             ),
@@ -1591,6 +1599,13 @@ class _CourtReelCommentsSheetState extends State<CourtReelCommentsSheet> {
     widget.reel.comments,
   );
   final TextEditingController _commentController = TextEditingController();
+  CourtlyCurrentUserProfile _currentUser = CourtlyCurrentUserProfile.fallback();
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadCurrentUser());
+  }
 
   @override
   void dispose() {
@@ -1619,6 +1634,7 @@ class _CourtReelCommentsSheetState extends State<CourtReelCommentsSheet> {
             children: [
               _CommentsPanel(
                 comments: _comments,
+                currentUser: _currentUser,
                 controller: _commentController,
                 onSend: _sendComment,
                 onOpenProfile: widget.onOpenProfile,
@@ -1649,11 +1665,11 @@ class _CourtReelCommentsSheetState extends State<CourtReelCommentsSheet> {
       ..._comments,
       CourtReelComment(
         id: 'local-reel-comment-${DateTime.now().microsecondsSinceEpoch}',
-        authorId: 'you',
-        author: 'You',
+        authorId: CourtlyCurrentUserProfile.userId,
+        author: _currentUser.displayName,
         timeLabel: 'now',
         message: message,
-        avatarAsset: CourtlyMediaAssets.womenHeads.first,
+        avatarAsset: _currentUser.avatarPath,
       ),
     ];
 
@@ -1664,15 +1680,27 @@ class _CourtReelCommentsSheetState extends State<CourtReelCommentsSheet> {
     widget.onCommentsChanged(nextComments);
   }
 
+  Future<void> _loadCurrentUser() async {
+    final currentUser = await loadCourtlyCurrentUserProfile();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _currentUser = currentUser);
+  }
+
   Future<void> _reportComment(CourtReelComment comment) async {
+    final isCurrentUser = comment.authorId == CourtlyCurrentUserProfile.userId;
     final result = await showCourtlyModerationSheet(
       context: context,
       targetId: 'reel-comment:${comment.id}',
       targetType: 'comment',
-      title: comment.author,
+      title: isCurrentUser ? _currentUser.displayName : comment.author,
       userId: comment.authorId,
       summary: comment.message,
-      avatarAsset: comment.avatarAsset,
+      avatarAsset: isCurrentUser
+          ? _currentUser.avatarPath
+          : comment.avatarAsset,
     );
     if (result == null || !mounted) {
       return;
@@ -1690,6 +1718,7 @@ class _CourtReelCommentsSheetState extends State<CourtReelCommentsSheet> {
 class _CommentsPanel extends StatelessWidget {
   const _CommentsPanel({
     required this.comments,
+    required this.currentUser,
     required this.controller,
     required this.onSend,
     required this.onOpenProfile,
@@ -1697,6 +1726,7 @@ class _CommentsPanel extends StatelessWidget {
   });
 
   final List<CourtReelComment> comments;
+  final CourtlyCurrentUserProfile currentUser;
   final TextEditingController controller;
   final VoidCallback onSend;
   final ValueChanged<CourtReelComment> onOpenProfile;
@@ -1733,8 +1763,13 @@ class _CommentsPanel extends StatelessWidget {
               physics: const BouncingScrollPhysics(),
               itemBuilder: (context, index) {
                 final comment = comments[index];
+                final avatarPath =
+                    comment.authorId == CourtlyCurrentUserProfile.userId
+                    ? currentUser.avatarPath
+                    : comment.avatarAsset;
                 return _CommentRow(
                   comment: comment,
+                  avatarPath: avatarPath,
                   onOpenProfile: () => onOpenProfile(comment),
                   onReport: () => onReportComment(comment),
                 );
@@ -1766,11 +1801,13 @@ class _CommentsPanel extends StatelessWidget {
 class _CommentRow extends StatelessWidget {
   const _CommentRow({
     required this.comment,
+    required this.avatarPath,
     required this.onOpenProfile,
     required this.onReport,
   });
 
   final CourtReelComment comment;
+  final String avatarPath;
   final VoidCallback onOpenProfile;
   final VoidCallback onReport;
 
@@ -1786,11 +1823,10 @@ class _CommentRow extends StatelessWidget {
           padding: EdgeInsets.zero,
           onPressed: onOpenProfile,
           child: ClipOval(
-            child: Image.asset(
-              comment.avatarAsset,
+            child: CourtlyProfileImage(
+              imagePath: avatarPath,
               width: 34,
               height: 34,
-              fit: BoxFit.cover,
             ),
           ),
         ),

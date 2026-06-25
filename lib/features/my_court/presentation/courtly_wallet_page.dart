@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:courtly/atelier/theme/courtly_font_families.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:courtly/shared/wallet/courtly_wallet_store.dart';
 import 'package:flutter/cupertino.dart';
@@ -593,6 +594,7 @@ TextStyle _walletText({
 }) {
   return TextStyle(
     color: color,
+    fontFamily: CourtlyFontFamilies.ui,
     fontSize: fontSize,
     height: height,
     fontWeight: fontWeight,

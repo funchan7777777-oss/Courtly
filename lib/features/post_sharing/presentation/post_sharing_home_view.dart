@@ -6,6 +6,7 @@ import 'package:courtly/features/court_reels/data/court_reel_seed.dart';
 import 'package:courtly/features/post_sharing/data/post_sharing_seed.dart';
 import 'package:courtly/features/post_sharing/domain/post_sharing_post.dart';
 import 'package:courtly/shared/data/courtly_media_assets.dart';
+import 'package:courtly/shared/presentation/courtly_profile_image.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:courtly/shared/social/courtly_current_user_profile.dart';
 import 'package:courtly/shared/social/courtly_moderation.dart';
@@ -936,8 +937,7 @@ class PostDetailPage extends StatefulWidget {
 class _PostDetailPageState extends State<PostDetailPage> {
   late PostSharingPost _post = widget.post;
   final TextEditingController _commentController = TextEditingController();
-  CourtlyCurrentUserProfile _currentUser =
-      CourtlyCurrentUserProfile.fallback();
+  CourtlyCurrentUserProfile _currentUser = CourtlyCurrentUserProfile.fallback();
 
   @override
   void initState() {
@@ -1144,8 +1144,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
           ..._post.comments,
           PostSharingComment(
             id: commentId,
-            authorId: 'you',
-            authorName: 'You',
+            authorId: CourtlyCurrentUserProfile.userId,
+            authorName: _currentUser.displayName,
             createdAtLabel: 'now',
             body: body,
             avatarAsset: _currentUser.avatarPath,
@@ -1181,26 +1181,30 @@ class _PostDetailPageState extends State<PostDetailPage> {
   }
 
   void _openCommentProfile(PostSharingComment comment) {
-    final isCurrentUser =
-        comment.authorId == CourtlyCurrentUserProfile.userId;
+    final isCurrentUser = comment.authorId == CourtlyCurrentUserProfile.userId;
     widget.onOpenProfile(
       CourtlyUserDirectory.fromIdentity(
         id: comment.authorId,
         name: isCurrentUser ? _currentUser.displayName : comment.authorName,
-        avatarAsset: isCurrentUser ? _currentUser.avatarPath : comment.avatarAsset,
+        avatarAsset: isCurrentUser
+            ? _currentUser.avatarPath
+            : comment.avatarAsset,
       ),
     );
   }
 
   Future<void> _reportComment(PostSharingComment comment) async {
+    final isCurrentUser = comment.authorId == CourtlyCurrentUserProfile.userId;
     final result = await showCourtlyModerationSheet(
       context: context,
       targetId: 'post-comment:${comment.id}',
       targetType: 'comment',
-      title: comment.authorName,
+      title: isCurrentUser ? _currentUser.displayName : comment.authorName,
       userId: comment.authorId,
       summary: comment.body,
-      avatarAsset: comment.avatarAsset,
+      avatarAsset: isCurrentUser
+          ? _currentUser.avatarPath
+          : comment.avatarAsset,
     );
     if (result == null || !mounted) {
       return;
@@ -3350,12 +3354,12 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imagePath = assetPath.trim();
-
     return ClipOval(
-      child: imagePath.startsWith('assets/')
-          ? Image.asset(imagePath, width: size, height: size, fit: BoxFit.cover)
-          : Image.file(File(imagePath), width: size, height: size, fit: BoxFit.cover),
+      child: CourtlyProfileImage(
+        imagePath: assetPath,
+        width: size,
+        height: size,
+      ),
     );
   }
 }
