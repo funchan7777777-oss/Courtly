@@ -210,6 +210,16 @@ class CourtlySocialStore {
     return _loadStringSet(_blockedUsersKey);
   }
 
+  Future<List<String>> followerUserIds() async {
+    return (await _loadStringSet(_followersKey)).toList(growable: false)
+      ..sort();
+  }
+
+  Future<List<String>> followingUserIds() async {
+    return (await _loadStringSet(_followingKey)).toList(growable: false)
+      ..sort();
+  }
+
   Future<List<CourtlyBlockedUser>> loadBlockedUsers() async {
     final preferences = await SharedPreferences.getInstance();
     final ids = preferences.getStringList(_blockedUsersKey) ?? <String>[];
@@ -409,6 +419,27 @@ class CourtlySocialStore {
       );
       _notifyRelationshipChanged();
     }
+  }
+
+  Future<void> unfollowUser(String userId) async {
+    final cleanUserId = userId.trim();
+    if (cleanUserId.isEmpty) {
+      return;
+    }
+
+    final preferences = await SharedPreferences.getInstance();
+    final following = preferences.getStringList(_followingKey) ?? <String>[];
+    final requests =
+        preferences.getStringList(_followRequestsKey) ?? <String>[];
+    final removedFollowing = following.remove(cleanUserId);
+    final removedRequest = requests.remove(cleanUserId);
+    if (!removedFollowing && !removedRequest) {
+      return;
+    }
+
+    await preferences.setStringList(_followingKey, following);
+    await preferences.setStringList(_followRequestsKey, requests);
+    _notifyRelationshipChanged();
   }
 
   Future<bool> hasRequestedFollow(String userId) async {

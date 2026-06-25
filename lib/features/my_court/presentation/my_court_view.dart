@@ -42,10 +42,9 @@ class _MyCourtViewState extends State<MyCourtView> {
   int _walletCoins = 0;
   List<CourtlyPublishedReel> _publishedReels = const [];
   List<CourtlyPublishedPost> _publishedPosts = const [];
-
-  List<_CourtPerson> _fans = _CourtPersonSeed.fans();
-  List<_CourtPerson> _follows = _CourtPersonSeed.follows();
-  List<_CourtPerson> _friends = _CourtPersonSeed.friends();
+  List<_CourtPerson> _fans = const [];
+  List<_CourtPerson> _follows = const [];
+  List<_CourtPerson> _friends = const [];
 
   @override
   void initState() {
@@ -53,8 +52,12 @@ class _MyCourtViewState extends State<MyCourtView> {
     CourtlySocialStore.instance.publishedContentVersion.addListener(
       _handlePublishedContentChanged,
     );
+    CourtlySocialStore.instance.relationshipVersion.addListener(
+      _handleRelationshipChanged,
+    );
     _walletStore.balanceVersion.addListener(_handleWalletBalanceChanged);
     unawaited(_loadStoredProfile());
+    unawaited(_loadRelationships());
     unawaited(_loadPublishedContent());
     unawaited(_loadWalletBalance());
   }
@@ -63,6 +66,9 @@ class _MyCourtViewState extends State<MyCourtView> {
   void dispose() {
     CourtlySocialStore.instance.publishedContentVersion.removeListener(
       _handlePublishedContentChanged,
+    );
+    CourtlySocialStore.instance.relationshipVersion.removeListener(
+      _handleRelationshipChanged,
     );
     _walletStore.balanceVersion.removeListener(_handleWalletBalanceChanged);
     super.dispose();
@@ -159,11 +165,57 @@ class _MyCourtViewState extends State<MyCourtView> {
     setState(() => _walletCoins = balance);
   }
 
+  Future<void> _loadRelationships() async {
+    final store = CourtlySocialStore.instance;
+    await store.ensureLoginFollowerBoost();
+    final blockedIds = await store.blockedUserIds();
+    final followerIds = await store.followerUserIds();
+    final followingIds = await store.followingUserIds();
+    final followingSet = followingIds.toSet();
+    final followerSet = followerIds.toSet();
+    final fans = _courtPeopleForIds(
+      followerIds,
+      followingIds: followingSet,
+      blockedIds: blockedIds,
+    );
+    final follows = _courtPeopleForIds(
+      followingIds,
+      followingIds: followingSet,
+      blockedIds: blockedIds,
+    );
+    final friends = _courtPeopleForIds(
+      followingIds.where(followerSet.contains),
+      followingIds: followingSet,
+      blockedIds: blockedIds,
+    );
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _fans = fans;
+      _follows = follows;
+      _friends = friends;
+      _profile = _profile.copyWith(
+        fans: fans.length,
+        follows: follows.length,
+        friends: friends.length,
+      );
+    });
+  }
+
   void _handleWalletBalanceChanged() {
     if (!mounted) {
       return;
     }
     unawaited(_loadWalletBalance());
+  }
+
+  void _handleRelationshipChanged() {
+    if (!mounted) {
+      return;
+    }
+    unawaited(_loadRelationships());
   }
 
   void _handlePublishedContentChanged() {
@@ -252,6 +304,9 @@ class _MyCourtViewState extends State<MyCourtView> {
     await Navigator.of(context).push<void>(
       CupertinoPageRoute<void>(builder: (_) => const _MyCourtSettingsPage()),
     );
+    if (mounted) {
+      unawaited(_loadRelationships());
+    }
   }
 
   Future<void> _openWallet() async {
@@ -264,6 +319,11 @@ class _MyCourtViewState extends State<MyCourtView> {
   }
 
   Future<void> _openPeople(_PeopleListKind kind) async {
+    await _loadRelationships();
+    if (!mounted) {
+      return;
+    }
+
     final people = switch (kind) {
       _PeopleListKind.blacklist => const <_CourtPerson>[],
       _PeopleListKind.fans => _fans,
@@ -271,28 +331,15 @@ class _MyCourtViewState extends State<MyCourtView> {
       _PeopleListKind.friends => _friends,
     };
 
-    final updated = await Navigator.of(context).push<List<_CourtPerson>>(
+    await Navigator.of(context).push<List<_CourtPerson>>(
       CupertinoPageRoute<List<_CourtPerson>>(
         builder: (_) => _MyCourtPeoplePage(kind: kind, people: people),
       ),
     );
 
-    if (updated == null || !mounted) {
-      return;
+    if (mounted) {
+      unawaited(_loadRelationships());
     }
-
-    setState(() {
-      switch (kind) {
-        case _PeopleListKind.blacklist:
-          break;
-        case _PeopleListKind.fans:
-          _fans = updated;
-        case _PeopleListKind.follows:
-          _follows = updated;
-        case _PeopleListKind.friends:
-          _friends = updated;
-      }
-    });
   }
 }
 
@@ -374,7 +421,7 @@ class _ProfileHero extends StatelessWidget {
                 child: const SizedBox.square(
                   dimension: 42,
                   child: Icon(
-                    CupertinoIcons.gearshape_fill,
+                    CupertinoIcons.gear_solid,
                     color: _courtPink,
                     size: 27,
                   ),
@@ -1419,7 +1466,7 @@ class _MyCourtEditPageState extends State<_MyCourtEditPage> {
                       onPressed: () => unawaited(_pickAvatar()),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 18),
                   Text(
                     'Please select gender',
                     style: _myTextStyle(
@@ -1456,9 +1503,9 @@ class _MyCourtEditPageState extends State<_MyCourtEditPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
                   Text(
-                    'Please fill in the basic information',
+                    'Basic information',
                     style: _myTextStyle(
                       color: _courtWhite.withValues(alpha: 0.42),
                       fontSize: 12,
@@ -1490,7 +1537,7 @@ class _MyCourtEditPageState extends State<_MyCourtEditPage> {
                     minLines: 5,
                     maxLines: 5,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 22),
                   CupertinoButton(
                     minimumSize: Size.zero,
                     padding: EdgeInsets.zero,
@@ -1512,12 +1559,82 @@ class _MyCourtEditPageState extends State<_MyCourtEditPage> {
   }
 
   Future<void> _pickAvatar() async {
-    final image = await _imagePicker.pickImage(source: ImageSource.gallery);
-    if (image == null || !mounted) {
+    final source = await _chooseAvatarSource();
+    if (source == null || !mounted) {
       return;
     }
 
-    setState(() => _draft = _draft.copyWith(avatarImagePath: image.path));
+    try {
+      final image = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 88,
+        maxWidth: 1600,
+      );
+      if (image == null || !mounted) {
+        return;
+      }
+
+      setState(() => _draft = _draft.copyWith(avatarImagePath: image.path));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      await _showAvatarNotice(
+        title: 'Photo unavailable',
+        message:
+            'Courtly could not open this photo source. Check photo or camera permission and try again.',
+      );
+    }
+  }
+
+  Future<ImageSource?> _chooseAvatarSource() {
+    return showCupertinoModalPopup<ImageSource>(
+      context: context,
+      builder: (context) {
+        return CupertinoActionSheet(
+          title: const Text('Update profile photo'),
+          message: const Text(
+            'Take a new photo or choose one from your album.',
+          ),
+          actions: [
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(context).pop(ImageSource.camera),
+              child: const Text('Take photo'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(context).pop(ImageSource.gallery),
+              child: const Text('Choose from album'),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showAvatarNotice({
+    required String title,
+    required String message,
+  }) {
+    return showCupertinoDialog<void>(
+      context: context,
+      builder: (context) {
+        return CupertinoAlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _chooseBirthdate() async {
@@ -1594,6 +1711,7 @@ class _MyCourtPeoplePage extends StatefulWidget {
 
 class _MyCourtPeoplePageState extends State<_MyCourtPeoplePage> {
   late List<_CourtPerson> _people;
+  final Set<String> _busyPeople = {};
 
   @override
   void initState() {
@@ -1627,7 +1745,7 @@ class _MyCourtPeoplePageState extends State<_MyCourtPeoplePage> {
                         return _PersonRow(
                           person: person,
                           kind: widget.kind,
-                          onPrimary: () => _handlePrimary(person),
+                          onPrimary: () => unawaited(_handlePrimary(person)),
                         );
                       },
                       separatorBuilder: (context, index) =>
@@ -1640,7 +1758,7 @@ class _MyCourtPeoplePageState extends State<_MyCourtPeoplePage> {
     );
   }
 
-  void _handlePrimary(_CourtPerson person) {
+  Future<void> _handlePrimary(_CourtPerson person) async {
     final index = _people.indexWhere((entry) => entry.id == person.id);
     if (index == -1) {
       return;
@@ -1648,17 +1766,63 @@ class _MyCourtPeoplePageState extends State<_MyCourtPeoplePage> {
 
     switch (widget.kind) {
       case _PeopleListKind.blacklist:
-        setState(() => _people.removeAt(index));
+        await _runPersonAction(person.id, () async {
+          await CourtlySocialStore.instance.unblockUser(person.id);
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _people.removeWhere((entry) => entry.id == person.id);
+          });
+        });
       case _PeopleListKind.fans:
-        setState(() {
-          _people[index] = person.copyWith(followed: !person.followed);
+        if (person.followed) {
+          return;
+        }
+        await _runPersonAction(person.id, () async {
+          await CourtlySocialStore.instance.followUserLocally(person.id);
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            final nextIndex = _people.indexWhere(
+              (entry) => entry.id == person.id,
+            );
+            if (nextIndex != -1) {
+              _people[nextIndex] = person.copyWith(followed: true);
+            }
+          });
         });
       case _PeopleListKind.follows:
-        setState(() {
-          _people[index] = person.copyWith(followed: !person.followed);
+        await _runPersonAction(person.id, () async {
+          await CourtlySocialStore.instance.unfollowUser(person.id);
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _people.removeWhere((entry) => entry.id == person.id);
+          });
         });
       case _PeopleListKind.friends:
         unawaited(_openChat(person));
+    }
+  }
+
+  Future<void> _runPersonAction(
+    String personId,
+    Future<void> Function() action,
+  ) async {
+    if (_busyPeople.contains(personId)) {
+      return;
+    }
+
+    setState(() => _busyPeople.add(personId));
+    try {
+      await action();
+    } finally {
+      if (mounted) {
+        setState(() => _busyPeople.remove(personId));
+      }
     }
   }
 
@@ -1891,68 +2055,76 @@ class _PersonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 72,
-      decoration: BoxDecoration(
-        color: _courtPanel.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      child: Row(
-        children: [
-          _RoundAvatar(assetPath: person.avatarAsset, size: 52),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        person.name,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: kind == _PeopleListKind.friends ? onPrimary : null,
+      child: Container(
+        height: 72,
+        decoration: BoxDecoration(
+          color: _courtPanel.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Row(
+          children: [
+            _RoundAvatar(assetPath: person.avatarAsset, size: 52),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          person.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _myTextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      _AgePill(ageLabel: person.ageLabel),
+                      const SizedBox(width: 5),
+                      Text(
+                        person.country,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: _myTextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
+                          color: _courtWhite.withValues(alpha: 0.72),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 5),
-                    _AgePill(ageLabel: person.ageLabel),
-                    const SizedBox(width: 5),
-                    Text(
-                      person.country,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _myTextStyle(
-                        color: _courtWhite.withValues(alpha: 0.72),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  person.motto,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: _myTextStyle(
-                    color: _courtWhite.withValues(alpha: 0.76),
-                    fontSize: 10,
-                    height: 1.18,
-                    fontWeight: FontWeight.w500,
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    person.motto,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: _myTextStyle(
+                      color: _courtWhite.withValues(alpha: 0.76),
+                      fontSize: 10,
+                      height: 1.18,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          _PersonActionButton(kind: kind, person: person, onPressed: onPrimary),
-        ],
+            const SizedBox(width: 8),
+            _PersonActionButton(
+              kind: kind,
+              person: person,
+              onPressed: onPrimary,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1986,8 +2158,11 @@ class _PersonActionButton extends StatelessWidget {
     }
 
     final isDelete = kind == _PeopleListKind.blacklist;
+    final isUnfollow = kind == _PeopleListKind.follows;
     final label = isDelete
         ? 'Delete'
+        : isUnfollow
+        ? 'Unfollow'
         : (person.followed ? 'Followed' : 'Follow');
 
     return CupertinoButton(
@@ -1996,10 +2171,12 @@ class _PersonActionButton extends StatelessWidget {
       onPressed: onPressed,
       child: Container(
         height: 28,
-        width: isDelete ? 76 : 82,
+        width: isDelete || isUnfollow ? 86 : 82,
         decoration: BoxDecoration(
           color: isDelete
               ? _courtPink.withValues(alpha: 0.84)
+              : isUnfollow
+              ? _courtWhite.withValues(alpha: 0.16)
               : (person.followed
                     ? _courtWhite.withValues(alpha: 0.22)
                     : _courtPink),
@@ -2009,7 +2186,11 @@ class _PersonActionButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isDelete ? CupertinoIcons.delete_solid : CupertinoIcons.star_fill,
+              isDelete
+                  ? CupertinoIcons.delete_solid
+                  : isUnfollow
+                  ? CupertinoIcons.minus_circle_fill
+                  : CupertinoIcons.star_fill,
               color: _courtWhite,
               size: 12,
             ),
@@ -2067,25 +2248,125 @@ class _EditAvatar extends StatelessWidget {
       minimumSize: Size.zero,
       padding: EdgeInsets.zero,
       onPressed: onPressed,
-      child: Container(
-        width: 132,
-        height: 132,
-        decoration: BoxDecoration(
-          color: _courtPanelSoft,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: 156,
+        height: 156,
         child: Stack(
-          fit: StackFit.expand,
+          clipBehavior: Clip.none,
           children: [
-            _ProfileImage(path: avatarImagePath),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: _courtPurpleDeep.withValues(alpha: 0.22),
+            Positioned.fill(
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      _courtPink.withValues(alpha: 0.85),
+                      _courtGold.withValues(alpha: 0.55),
+                      _courtWhite.withValues(alpha: 0.12),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _courtPink.withValues(alpha: 0.18),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _ProfileImage(path: avatarImagePath),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              _courtPurpleDeep.withValues(alpha: 0.08),
+                              _courtPurpleDeep.withValues(alpha: 0.28),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Center(
+                        child: Container(
+                          width: 54,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            color: _courtPurpleDeep.withValues(alpha: 0.52),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _courtWhite.withValues(alpha: 0.22),
+                            ),
+                          ),
+                          child: const Icon(
+                            CupertinoIcons.camera_fill,
+                            color: _courtWhite,
+                            size: 26,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const Center(
-              child: Icon(CupertinoIcons.plus, color: _courtWhite, size: 44),
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: _courtPink,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: _courtPurpleDeep, width: 4),
+                ),
+                child: const Icon(
+                  CupertinoIcons.plus,
+                  color: _courtWhite,
+                  size: 23,
+                ),
+              ),
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 14,
+              child: Container(
+                height: 24,
+                decoration: BoxDecoration(
+                  color: _courtPurpleDeep.withValues(alpha: 0.56),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    'Profile photo',
+                    style: _myTextStyle(
+                      color: _courtWhite.withValues(alpha: 0.82),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: _courtWhite.withValues(alpha: 0.12),
+                    width: 1,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -2544,9 +2825,9 @@ class _MyCourtProfile {
       birthdate: DateTime(2000, 6, 23),
       playStyleKey: 'balanced',
       entryMethod: 'local',
-      fans: 125,
-      follows: 125,
-      friends: 125,
+      fans: 0,
+      follows: 0,
+      friends: 0,
     );
   }
 
@@ -2612,70 +2893,37 @@ class _CourtPerson {
   }
 }
 
-abstract final class _CourtPersonSeed {
-  static List<_CourtPerson> blacklist() {
-    return [
-      const _CourtPerson(
-        id: 'black-francis',
-        name: 'Francis',
-        ageLabel: '25',
-        country: 'Colombia',
-        avatarAsset: 'assets/images/head/men/man_head_10.jpg',
-        heroAsset: 'assets/images/post/post_moment_13.jpg',
-        motto:
-            'One ball, one racket, pure freedom. The racket catches the dusk wind.',
-        followed: false,
+List<_CourtPerson> _courtPeopleForIds(
+  Iterable<String> userIds, {
+  required Set<String> followingIds,
+  required Set<String> blockedIds,
+}) {
+  final seen = <String>{};
+  final people = <_CourtPerson>[];
+
+  for (final userId in userIds) {
+    if (userId.trim().isEmpty ||
+        blockedIds.contains(userId) ||
+        !seen.add(userId)) {
+      continue;
+    }
+
+    final profile = CourtlyUserDirectory.byId(userId);
+    people.add(
+      _CourtPerson(
+        id: profile.id,
+        name: profile.name,
+        ageLabel: profile.ageLabel,
+        country: profile.genderLabel,
+        avatarAsset: profile.avatarAsset,
+        heroAsset: profile.heroAsset,
+        motto: profile.bio,
+        followed: followingIds.contains(userId),
       ),
-    ];
+    );
   }
 
-  static List<_CourtPerson> fans() {
-    return [
-      const _CourtPerson(
-        id: 'fan-francis',
-        name: 'Francis',
-        ageLabel: '25',
-        country: 'Colombia',
-        avatarAsset: 'assets/images/head/men/man_head_11.jpg',
-        heroAsset: 'assets/images/post/post_moment_14.jpg',
-        motto:
-            'One ball, one racket, pure freedom. The racket catches the dusk wind.',
-        followed: false,
-      ),
-    ];
-  }
-
-  static List<_CourtPerson> follows() {
-    return [
-      const _CourtPerson(
-        id: 'follow-francis',
-        name: 'Francis',
-        ageLabel: '25',
-        country: 'Colombia',
-        avatarAsset: 'assets/images/head/men/man_head_12.jpg',
-        heroAsset: 'assets/images/post/post_moment_15.jpg',
-        motto:
-            'One ball, one racket, pure freedom. The racket catches the dusk wind.',
-        followed: true,
-      ),
-    ];
-  }
-
-  static List<_CourtPerson> friends() {
-    return [
-      const _CourtPerson(
-        id: 'friend-francis',
-        name: 'Francis',
-        ageLabel: '25',
-        country: 'Colombia',
-        avatarAsset: 'assets/images/head/men/man_head_13.jpg',
-        heroAsset: 'assets/images/post/post_moment_16.jpg',
-        motto:
-            'One ball, one racket, pure freedom. The racket catches the dusk wind.',
-        followed: true,
-      ),
-    ];
-  }
+  return people..sort((left, right) => left.name.compareTo(right.name));
 }
 
 enum _GalleryMode { videos, posts }
