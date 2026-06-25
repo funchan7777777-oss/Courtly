@@ -221,10 +221,9 @@ class CourtlySocialStore {
   }
 
   Future<List<String>> outgoingFollowUserIds() async {
-    final ids = {
-      ...await _loadStringSet(_followingKey),
-      ...await _loadStringSet(_followRequestsKey),
-    }.toList(growable: false);
+    final following = await _loadStringSet(_followingKey);
+    final requests = await _loadStringSet(_followRequestsKey);
+    final ids = {...following, ...requests}.toList(growable: false);
     return ids..sort();
   }
 

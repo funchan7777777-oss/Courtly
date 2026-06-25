@@ -171,7 +171,9 @@ class _MyCourtViewState extends State<MyCourtView> {
     final blockedIds = await store.blockedUserIds();
     final followerIds = await store.followerUserIds();
     final followingIds = await store.followingUserIds();
+    final outgoingFollowIds = await store.outgoingFollowUserIds();
     final followingSet = followingIds.toSet();
+    final outgoingFollowSet = outgoingFollowIds.toSet();
     final followerSet = followerIds.toSet();
     final fans = _courtPeopleForIds(
       followerIds,
@@ -179,8 +181,8 @@ class _MyCourtViewState extends State<MyCourtView> {
       blockedIds: blockedIds,
     );
     final follows = _courtPeopleForIds(
-      followingIds,
-      followingIds: followingSet,
+      outgoingFollowIds,
+      followingIds: outgoingFollowSet,
       blockedIds: blockedIds,
     );
     final friends = _courtPeopleForIds(

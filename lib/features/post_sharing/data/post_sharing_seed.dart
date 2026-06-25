@@ -10,10 +10,6 @@ abstract final class PostSharingSeed {
       final authorProfile = CourtlyUserDirectory.byId(
         CourtlyUserDirectory.idFromName(author),
       );
-      final commentAuthor = _commentAuthors[index % _commentAuthors.length];
-      final commentAvatar = CourtlyMediaAssets
-          .allHeads[(index + 20) % CourtlyMediaAssets.allHeads.length];
-
       return PostSharingPost(
         id: 'post-${(index + 1).toString().padLeft(2, '0')}',
         authorId: authorProfile.id,
@@ -23,27 +19,9 @@ abstract final class PostSharingSeed {
         imageAsset: CourtlyMediaAssets.postImages[index],
         avatarAsset: authorProfile.avatarAsset,
         likes: 96 + (index * 37),
-        isLiked: index.isEven,
+        isLiked: false,
         isFollowed: false,
-        comments: [
-          PostSharingComment(
-            id: 'post-${(index + 1).toString().padLeft(2, '0')}-comment-1',
-            authorId: CourtlyUserDirectory.idFromName(commentAuthor),
-            authorName: commentAuthor,
-            createdAtLabel: '08:${(40 + index).toString().padLeft(2, '0')}',
-            body: _commentBodies[index % _commentBodies.length],
-            avatarAsset: commentAvatar,
-          ),
-          PostSharingComment(
-            id: 'post-${(index + 1).toString().padLeft(2, '0')}-comment-2',
-            authorId: CourtlyUserDirectory.idFromName('Court Partner'),
-            authorName: 'Court Partner',
-            createdAtLabel: '09:${(10 + index).toString().padLeft(2, '0')}',
-            body: 'Saving this tennis note for the next practice block.',
-            avatarAsset: CourtlyMediaAssets
-                .allHeads[(index + 7) % CourtlyMediaAssets.allHeads.length],
-          ),
-        ],
+        comments: _commentsFor(index),
         videoAssets: [
           CourtlyMediaAssets.postImages[index],
           CourtlyMediaAssets.postImages[(index + 1) %
@@ -98,26 +76,24 @@ abstract final class PostSharingSeed {
   ];
 
   static const List<String> _createdAtLabels = [
+    'Just now',
     '6 min ago',
-    '18 min ago',
-    '42 min ago',
+    '14 min ago',
+    '31 min ago',
     '1 h ago',
     '2 h ago',
+    '3 h ago',
     'Today 09:20',
-    'Today 12:45',
-    'Today 18:10',
+    'Today 11:45',
+    'Today 16:10',
     'Yesterday 08:45',
     'Yesterday 16:30',
     '2 days ago',
-    '2 days ago',
-    '3 days ago',
     '3 days ago',
     '4 days ago',
-    '4 days ago',
-    '5 days ago',
     '5 days ago',
     'Last week',
-    'Last week',
+    'This week',
   ];
 
   static const List<String> _rankingNames = [
@@ -147,5 +123,50 @@ abstract final class PostSharingSeed {
     'Night courts make the timing look even cleaner.',
     'That contact point is worth replaying.',
     'The rally shape feels calm and confident.',
+    'Your shoulder turn looks much looser here.',
+    'That split step timing is getting sharp.',
+    'Clean court energy, especially on the recovery.',
+    'The net approach feels brave and controlled.',
+    'Love the way you finish balanced after contact.',
+    'This would be a great drill to repeat tomorrow.',
+    'The serve target looks much clearer now.',
+    'Nice patience before changing direction.',
+    'That topspin window is really visible.',
+    'The camera angle makes the movement easy to study.',
   ];
+
+  static const List<String> _commentTimeLabels = [
+    'now',
+    '3 min ago',
+    '9 min ago',
+    '18 min ago',
+    '32 min ago',
+    '1 h ago',
+    '2 h ago',
+    'Today 13:12',
+    'Yesterday',
+  ];
+
+  static List<PostSharingComment> _commentsFor(int index) {
+    final count = 1 + (index % 4);
+    final postId = (index + 1).toString().padLeft(2, '0');
+
+    return List.generate(count, (offset) {
+      final authorIndex = (index + offset * 3) % _commentAuthors.length;
+      final author = _commentAuthors[authorIndex];
+      final bodyIndex = (index * 2 + offset * 5) % _commentBodies.length;
+      final avatarIndex =
+          (index * 7 + offset * 11 + 20) % CourtlyMediaAssets.allHeads.length;
+
+      return PostSharingComment(
+        id: 'post-$postId-comment-${offset + 1}',
+        authorId: CourtlyUserDirectory.idFromName(author),
+        authorName: author,
+        createdAtLabel:
+            _commentTimeLabels[(index + offset) % _commentTimeLabels.length],
+        body: _commentBodies[bodyIndex],
+        avatarAsset: CourtlyMediaAssets.allHeads[avatarIndex],
+      );
+    });
+  }
 }

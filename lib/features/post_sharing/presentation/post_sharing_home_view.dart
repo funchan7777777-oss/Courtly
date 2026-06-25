@@ -669,7 +669,7 @@ class _PostCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 5),
                           Text(
-                            post.createdAtLabel,
+                            _postDisplayTimeLabel(post.createdAtLabel),
                             style: _postText(context).copyWith(
                               color: CupertinoColors.white.withValues(
                                 alpha: 0.56,
@@ -1072,6 +1072,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                           onFollow: () {
                             unawaited(_toggleFollow());
                           },
+                          onLike: _toggleLike,
                           onOpenProfile: _openAuthorProfile,
                         ),
                       ),
@@ -1117,6 +1118,17 @@ class _PostDetailPageState extends State<PostDetailPage> {
       return;
     }
     setState(() => _post = _post.copyWith(isFollowed: true));
+  }
+
+  void _toggleLike() {
+    final nextLiked = !_post.isLiked;
+    final nextLikes = (_post.likes + (nextLiked ? 1 : -1))
+        .clamp(0, 999999)
+        .toInt();
+
+    setState(() {
+      _post = _post.copyWith(isLiked: nextLiked, likes: nextLikes);
+    });
   }
 
   void _handleRelationshipChanged() {
@@ -1231,6 +1243,7 @@ class _DetailAuthorBlock extends StatelessWidget {
     required this.post,
     required this.onFollow,
     required this.onOpenProfile,
+    this.onLike,
     this.followWidth = 96,
     this.followHeight = 30,
     this.titleSize = 21,
@@ -1239,6 +1252,7 @@ class _DetailAuthorBlock extends StatelessWidget {
   final PostSharingPost post;
   final VoidCallback onFollow;
   final VoidCallback onOpenProfile;
+  final VoidCallback? onLike;
   final double followWidth;
   final double followHeight;
   final double titleSize;
@@ -1283,7 +1297,7 @@ class _DetailAuthorBlock extends StatelessWidget {
         ),
         const SizedBox(height: 7),
         Text(
-          post.createdAtLabel,
+          _postDisplayTimeLabel(post.createdAtLabel),
           style: _postText(context).copyWith(
             color: CupertinoColors.white.withValues(alpha: 0.58),
             fontSize: 12,
@@ -1302,6 +1316,26 @@ class _DetailAuthorBlock extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
+        if (onLike != null) ...[
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _PostMetricButton(
+                iconAsset: post.isLiked
+                    ? 'assets/images/Locker.png'
+                    : 'assets/images/Hei.png',
+                label: _countLabel(post.likes),
+                onPressed: onLike!,
+              ),
+              const SizedBox(width: 10),
+              _PostMetricButton(
+                iconData: CupertinoIcons.chat_bubble_fill,
+                label: _countLabel(post.comments.length),
+                onPressed: () {},
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 14),
         Text(
           'Discuss',
@@ -3355,4 +3389,16 @@ String _countLabel(int value) {
   }
 
   return '$value';
+}
+
+String _postDisplayTimeLabel(String label) {
+  final cleanLabel = label.trim();
+  final absoluteDate = RegExp(
+    r'^\d{4}[/-]\d{1,2}[/-]\d{1,2}\s+(\d{1,2}:\d{2})',
+  ).firstMatch(cleanLabel);
+  if (absoluteDate != null) {
+    return 'Today ${absoluteDate.group(1)}';
+  }
+
+  return cleanLabel;
 }
