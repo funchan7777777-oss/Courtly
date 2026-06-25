@@ -76,17 +76,13 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+                padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
                 child: _ShortcutRow(
                   onCheckIn: _openCheckIn,
                   onRanking: _openRanking,
                 ),
               ),
             ),
-            SliverToBoxAdapter(
-              child: _ActivePlayersStrip(onOpenProfile: _openUserProfile),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 18)),
             if (visiblePosts.isEmpty)
               const SliverFillRemaining(
                 hasScrollBody: false,
@@ -545,54 +541,6 @@ class _ShortcutRow extends StatelessWidget {
   }
 }
 
-class _ActivePlayersStrip extends StatelessWidget {
-  const _ActivePlayersStrip({required this.onOpenProfile});
-
-  final ValueChanged<CourtlyUserProfile> onOpenProfile;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 64,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 22),
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: CourtlyMediaAssets.allHeads.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 10),
-        itemBuilder: (context, index) {
-          final profile =
-              CourtlyUserDirectory.featuredProfiles(
-                CourtlyMediaAssets.allHeads.length,
-              )[index %
-                  CourtlyUserDirectory.featuredProfiles(
-                    CourtlyMediaAssets.allHeads.length,
-                  ).length];
-
-          return CupertinoButton(
-            minimumSize: Size.zero,
-            padding: EdgeInsets.zero,
-            onPressed: () => onOpenProfile(profile),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: index.isEven ? _postPink : CupertinoColors.white,
-                  width: 2,
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(2),
-                child: _Avatar(assetPath: profile.avatarAsset, size: 52),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
 class _ShortcutCard extends StatelessWidget {
   const _ShortcutCard({
     required this.title,
@@ -941,10 +889,17 @@ class _PostMetricButton extends StatelessWidget {
 }
 
 class _FollowButton extends StatelessWidget {
-  const _FollowButton({required this.isFollowed, required this.onPressed});
+  const _FollowButton({
+    required this.isFollowed,
+    required this.onPressed,
+    this.width = 96,
+    this.height = 30,
+  });
 
   final bool isFollowed;
   final VoidCallback onPressed;
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -954,9 +909,40 @@ class _FollowButton extends StatelessWidget {
       onPressed: onPressed,
       child: Image.asset(
         isFollowed ? 'assets/images/Chat.png' : 'assets/images/Huddle.png',
-        width: 96,
-        height: 30,
+        width: width,
+        height: height,
         fit: BoxFit.fill,
+      ),
+    );
+  }
+}
+
+class _DetailTopActionButton extends StatelessWidget {
+  const _DetailTopActionButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: CupertinoColors.white.withValues(alpha: 0.92),
+          shape: BoxShape.circle,
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 16,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: const Icon(CupertinoIcons.ellipsis, color: _postPanel, size: 24),
       ),
     );
   }
@@ -1004,79 +990,116 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaPadding = MediaQuery.paddingOf(context);
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return CupertinoPageScaffold(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          _PostImage(
-            imagePath: _post.imageAsset,
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0x33000000),
-                  Color(0x22000000),
-                  Color(0xDD1A004D),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            top: courtlySafeTop(context, 8),
-            left: 12,
-            child: _RoundIconButton(
-              icon: CupertinoIcons.chevron_left,
-              onPressed: () => Navigator.of(context).pop(_post),
-            ),
-          ),
-          Positioned(
-            top: courtlySafeTop(context, 10),
-            right: 18,
-            child: CupertinoButton(
-              minimumSize: Size.zero,
-              padding: EdgeInsets.zero,
-              onPressed: widget.onCompose,
-              child: Image.asset(
-                'assets/images/Singles.png',
-                width: 42,
-                height: 42,
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-          Positioned(
-            left: 22,
-            right: 22,
-            bottom: 270 + keyboardInset,
-            child: _DetailAuthorBlock(
-              post: _post,
-              onFollow: () {
-                unawaited(_toggleFollow());
-              },
-              onOpenProfile: _openAuthorProfile,
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: keyboardInset,
-            height: 270,
-            child: _DetailCommentsPanel(
-              post: _post,
-              controller: _commentController,
-              onSend: _sendComment,
-              onOpenProfile: _openCommentProfile,
-              onReportComment: _reportComment,
-            ),
-          ),
-        ],
+      child: DecoratedBox(
+        decoration: const BoxDecoration(color: _postPanel),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final screenHeight = constraints.maxHeight.isFinite
+                ? constraints.maxHeight
+                : MediaQuery.sizeOf(context).height;
+            final heroHeight = (screenHeight * 0.6)
+                .clamp(mediaPadding.top + 360, 540)
+                .toDouble();
+            final composerBottom = keyboardInset > 0
+                ? keyboardInset + 12
+                : mediaPadding.bottom + 18;
+            const composerHeight = 58.0;
+            final commentsBottomPadding = composerBottom + composerHeight + 18;
+
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: heroHeight,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _PostImage(
+                        imagePath: _post.imageAsset,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topCenter,
+                      ),
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color(0x22000000),
+                              Color(0x00000000),
+                              Color(0x551A004D),
+                              Color(0xEE1A004D),
+                              _postPanel,
+                            ],
+                            stops: [0, 0.28, 0.55, 0.84, 1],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: courtlySafeTop(context, 8),
+                        left: 16,
+                        child: _RoundIconButton(
+                          icon: CupertinoIcons.chevron_left,
+                          onPressed: () => Navigator.of(context).pop(_post),
+                        ),
+                      ),
+                      Positioned(
+                        top: courtlySafeTop(context, 10),
+                        right: 18,
+                        child: _DetailTopActionButton(
+                          onPressed: widget.onCompose,
+                        ),
+                      ),
+                      Positioned(
+                        left: 24,
+                        right: 24,
+                        bottom: 16,
+                        child: _DetailAuthorBlock(
+                          post: _post,
+                          followWidth: 108,
+                          followHeight: 34,
+                          titleSize: 22,
+                          onFollow: () {
+                            unawaited(_toggleFollow());
+                          },
+                          onOpenProfile: _openAuthorProfile,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  top: heroHeight,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _DetailCommentsPanel(
+                    post: _post,
+                    bottomPadding: commentsBottomPadding,
+                    onOpenProfile: _openCommentProfile,
+                    onReportComment: _reportComment,
+                  ),
+                ),
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom: composerBottom,
+                  child: _PostCommentComposer(
+                    controller: _commentController,
+                    onSend: _sendComment,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -1186,11 +1209,17 @@ class _DetailAuthorBlock extends StatelessWidget {
     required this.post,
     required this.onFollow,
     required this.onOpenProfile,
+    this.followWidth = 96,
+    this.followHeight = 30,
+    this.titleSize = 21,
   });
 
   final PostSharingPost post;
   final VoidCallback onFollow;
   final VoidCallback onOpenProfile;
+  final double followWidth;
+  final double followHeight;
+  final double titleSize;
 
   @override
   Widget build(BuildContext context) {
@@ -1205,48 +1234,59 @@ class _DetailAuthorBlock extends StatelessWidget {
                 minimumSize: Size.zero,
                 padding: EdgeInsets.zero,
                 onPressed: onOpenProfile,
-                child: Text(
-                  post.authorName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _postText(context).copyWith(
-                    color: CupertinoColors.white,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    post.authorName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _postText(context).copyWith(
+                      color: CupertinoColors.white,
+                      fontSize: titleSize,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
               ),
             ),
-            _FollowButton(isFollowed: post.isFollowed, onPressed: onFollow),
+            const SizedBox(width: 12),
+            _FollowButton(
+              isFollowed: post.isFollowed,
+              width: followWidth,
+              height: followHeight,
+              onPressed: onFollow,
+            ),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 7),
         Text(
           post.createdAtLabel,
           style: _postText(context).copyWith(
-            color: CupertinoColors.white.withValues(alpha: 0.62),
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
+            color: CupertinoColors.white.withValues(alpha: 0.58),
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 9),
+        const SizedBox(height: 12),
         Text(
           post.body,
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
           style: _postText(context).copyWith(
-            color: CupertinoColors.white.withValues(alpha: 0.88),
-            fontSize: 13,
-            height: 1.35,
+            color: CupertinoColors.white.withValues(alpha: 0.9),
+            fontSize: 14,
+            height: 1.32,
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Text(
           'Discuss',
           style: _postText(context).copyWith(
             color: CupertinoColors.white,
-            fontSize: 15,
+            fontSize: 17,
+            height: 1,
             fontWeight: FontWeight.w900,
             fontStyle: FontStyle.italic,
           ),
@@ -1259,15 +1299,13 @@ class _DetailAuthorBlock extends StatelessWidget {
 class _DetailCommentsPanel extends StatelessWidget {
   const _DetailCommentsPanel({
     required this.post,
-    required this.controller,
-    required this.onSend,
+    required this.bottomPadding,
     required this.onOpenProfile,
     required this.onReportComment,
   });
 
   final PostSharingPost post;
-  final TextEditingController controller;
-  final VoidCallback onSend;
+  final double bottomPadding;
   final ValueChanged<PostSharingComment> onOpenProfile;
   final ValueChanged<PostSharingComment> onReportComment;
 
@@ -1275,39 +1313,28 @@ class _DetailCommentsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: const BoxDecoration(color: _postPanel),
-      child: Column(
-        children: [
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
-              physics: const BouncingScrollPhysics(),
-              itemCount: post.comments.length,
-              itemBuilder: (context, index) {
-                final comment = post.comments[index];
-                return _PostCommentRow(
-                  comment: comment,
-                  onOpenProfile: () => onOpenProfile(comment),
-                  onReport: () => onReportComment(comment),
-                );
-              },
-              separatorBuilder: (context, index) {
-                return SizedBox(
-                  height: 22,
-                  child: Center(
-                    child: ColoredBox(
-                      color: CupertinoColors.white.withValues(alpha: 0.22),
-                      child: const SizedBox(height: 1, width: double.infinity),
-                    ),
-                  ),
-                );
-              },
+      child: ListView.separated(
+        padding: EdgeInsets.fromLTRB(24, 18, 24, bottomPadding),
+        physics: const BouncingScrollPhysics(),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        itemCount: post.comments.length,
+        itemBuilder: (context, index) {
+          final comment = post.comments[index];
+          return _PostCommentRow(
+            comment: comment,
+            onOpenProfile: () => onOpenProfile(comment),
+            onReport: () => onReportComment(comment),
+          );
+        },
+        separatorBuilder: (context, index) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(44, 16, 0, 16),
+            child: ColoredBox(
+              color: CupertinoColors.white.withValues(alpha: 0.24),
+              child: const SizedBox(height: 1, width: double.infinity),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
-            child: _PostCommentComposer(controller: controller, onSend: onSend),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -2717,9 +2744,21 @@ class _PostCommentRow extends StatelessWidget {
           minimumSize: Size.zero,
           padding: EdgeInsets.zero,
           onPressed: onOpenProfile,
-          child: _Avatar(assetPath: comment.avatarAsset, size: 32),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: _postPink.withValues(alpha: 0.86),
+                width: 1.5,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(1.5),
+              child: _Avatar(assetPath: comment.avatarAsset, size: 32),
+            ),
+          ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2731,49 +2770,61 @@ class _PostCommentRow extends StatelessWidget {
                       minimumSize: Size.zero,
                       padding: EdgeInsets.zero,
                       onPressed: onOpenProfile,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          comment.authorName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: _postText(context).copyWith(
-                            color: CupertinoColors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              comment.authorName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _postText(context).copyWith(
+                                color: CupertinoColors.white,
+                                fontSize: 14,
+                                height: 1,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 7),
+                          Text(
+                            comment.createdAtLabel,
+                            style: _postText(context).copyWith(
+                              color: CupertinoColors.white.withValues(
+                                alpha: 0.58,
+                              ),
+                              fontSize: 12,
+                              height: 1,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  Text(
-                    comment.createdAtLabel,
-                    style: _postText(context).copyWith(
-                      color: CupertinoColors.white.withValues(alpha: 0.48),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   CupertinoButton(
                     minimumSize: Size.zero,
-                    padding: EdgeInsets.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
                     onPressed: onReport,
-                    child: Icon(
-                      CupertinoIcons.ellipsis_vertical,
-                      color: CupertinoColors.white.withValues(alpha: 0.72),
-                      size: 16,
+                    child: SizedBox(
+                      width: 22,
+                      height: 24,
+                      child: Icon(
+                        CupertinoIcons.ellipsis_vertical,
+                        color: CupertinoColors.white.withValues(alpha: 0.76),
+                        size: 19,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 8),
               Text(
                 comment.body,
                 style: _postText(context).copyWith(
                   color: CupertinoColors.white.withValues(alpha: 0.84),
-                  fontSize: 12,
-                  height: 1.35,
+                  fontSize: 14,
+                  height: 1.4,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -2793,31 +2844,41 @@ class _PostCommentComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Container(
       decoration: BoxDecoration(
-        color: _postPanelSoft,
+        color: const Color(0xFF542686).withValues(alpha: 0.98),
         borderRadius: BorderRadius.circular(999),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 18,
+            offset: Offset(0, 9),
+          ),
+        ],
       ),
       child: SizedBox(
-        height: 48,
+        height: 58,
         child: Row(
           children: [
             Expanded(
               child: CupertinoTextField(
                 controller: controller,
                 placeholder: 'Please enter...',
-                padding: const EdgeInsets.only(left: 18, right: 10),
+                padding: const EdgeInsets.only(left: 22, right: 12),
                 style: _postText(context).copyWith(
                   color: CupertinoColors.white,
-                  fontSize: 13,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
                 placeholderStyle: _postText(context).copyWith(
-                  color: CupertinoColors.white.withValues(alpha: 0.42),
-                  fontSize: 13,
+                  color: CupertinoColors.white.withValues(alpha: 0.38),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                 ),
                 decoration: const BoxDecoration(),
                 cursorColor: CupertinoColors.white,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => onSend(),
               ),
             ),
             CupertinoButton(
@@ -2830,12 +2891,12 @@ class _PostCommentComposer extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: SizedBox.square(
-                  dimension: 40,
+                  dimension: 48,
                   child: Center(
                     child: Image.asset(
                       'assets/images/Singles.png',
-                      width: 28,
-                      height: 28,
+                      width: 31,
+                      height: 31,
                       fit: BoxFit.contain,
                     ),
                   ),
