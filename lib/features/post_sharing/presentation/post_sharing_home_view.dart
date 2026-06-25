@@ -544,7 +544,7 @@ class _ShortcutRow extends StatelessWidget {
         Expanded(
           child: _ShortcutCard(
             title: 'Tennis\nclock in',
-            imageAsset: 'assets/images/Ace.png',
+            imageAsset: 'assets/images/clock.png',
             onPressed: onCheckIn,
           ),
         ),
@@ -552,7 +552,7 @@ class _ShortcutRow extends StatelessWidget {
         Expanded(
           child: _ShortcutCard(
             title: 'Ranking\nlist',
-            imageAsset: 'assets/images/Backhand.png',
+            imageAsset: 'assets/images/Rankinglist.png',
             onPressed: onRanking,
           ),
         ),
@@ -626,61 +626,16 @@ class _ShortcutCard extends StatelessWidget {
       minimumSize: Size.zero,
       padding: EdgeInsets.zero,
       onPressed: onPressed,
-      child: Container(
+      child: SizedBox(
         height: 78,
-        decoration: BoxDecoration(
-          color: _postPanel,
+        child: ClipRRect(
           borderRadius: BorderRadius.circular(10),
-        ),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.asset(
-                  imageAsset,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: _postPurple.withValues(alpha: 0.44),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 16,
-              top: 14,
-              child: Text(
-                title,
-                style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
-                  color: CupertinoColors.white,
-                  fontSize: 15,
-                  height: 1.05,
-                  fontWeight: FontWeight.w900,
-                  fontStyle: FontStyle.italic,
-                  letterSpacing: 0,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-            ),
-            Positioned(
-              right: 10,
-              bottom: 8,
-              child: Image.asset(
-                imageAsset == 'assets/images/Ace.png'
-                    ? 'assets/images/Ace.png'
-                    : 'assets/images/Rally.png',
-                width: 50,
-                height: 50,
-                fit: BoxFit.contain,
-              ),
-            ),
-          ],
+          child: Image.asset(
+            imageAsset,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            semanticLabel: title,
+          ),
         ),
       ),
     );
@@ -1224,6 +1179,48 @@ class _PostComposerPageState extends State<PostComposerPage> {
         child: Stack(
           fit: StackFit.expand,
           children: [
+            Positioned.fill(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(28, 108, 28, 48 + keyboardInset),
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Share a court moment',
+                      textAlign: TextAlign.center,
+                      style: _postText(context).copyWith(
+                        color: CupertinoColors.white,
+                        fontSize: 24,
+                        height: 1.05,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Photo, match note, and the point worth remembering.',
+                      textAlign: TextAlign.center,
+                      style: _postText(context).copyWith(
+                        color: CupertinoColors.white.withValues(alpha: 0.58),
+                        fontSize: 12,
+                        height: 1.28,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 26),
+                    _ComposerImageCard(
+                      imagePath: _imagePath,
+                      isPickingImage: _isPickingImage,
+                      onPressed: _pickImage,
+                    ),
+                    const SizedBox(height: 24),
+                    _ComposerBodyField(controller: _bodyController),
+                    const SizedBox(height: 18),
+                    _ComposerReleaseButton(onPressed: _releasePost),
+                  ],
+                ),
+              ),
+            ),
             Positioned(
               top: courtlySafeTop(context, 8),
               left: 12,
@@ -1237,41 +1234,12 @@ class _PostComposerPageState extends State<PostComposerPage> {
               left: 74,
               right: 74,
               child: Text(
-                'Post sharing',
+                'Create post',
                 textAlign: TextAlign.center,
                 style: _postText(context).copyWith(
                   color: CupertinoColors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(28, 120, 28, 48 + keyboardInset),
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  children: [
-                    _ComposerImageCard(
-                      imagePath: _imagePath,
-                      isPickingImage: _isPickingImage,
-                      onPressed: _pickImage,
-                    ),
-                    const SizedBox(height: 24),
-                    _ComposerBodyField(controller: _bodyController),
-                    const SizedBox(height: 74),
-                    CupertinoButton(
-                      minimumSize: Size.zero,
-                      padding: EdgeInsets.zero,
-                      onPressed: _releasePost,
-                      child: Image.asset(
-                        'assets/images/Lesson.png',
-                        width: 290,
-                        height: 55,
-                        fit: BoxFit.fill,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),
@@ -1282,15 +1250,28 @@ class _PostComposerPageState extends State<PostComposerPage> {
   }
 
   Future<void> _pickImage() async {
+    final source = await _chooseImageSource();
+    if (source == null) {
+      return;
+    }
+
     setState(() => _isPickingImage = true);
     try {
       final image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 84,
-        maxWidth: 1600,
+        source: source,
+        imageQuality: 88,
+        maxWidth: 1800,
+        preferredCameraDevice: CameraDevice.rear,
       );
       if (image != null && mounted) {
         setState(() => _imagePath = image.path);
+      }
+    } catch (_) {
+      if (mounted) {
+        await _showDraftNotice(
+          title: 'Upload unavailable',
+          message: 'Please check camera or photo access, then try again.',
+        );
       }
     } finally {
       if (mounted) {
@@ -1299,20 +1280,46 @@ class _PostComposerPageState extends State<PostComposerPage> {
     }
   }
 
+  Future<ImageSource?> _chooseImageSource() {
+    return showCupertinoModalPopup<ImageSource>(
+      context: context,
+      builder: (context) {
+        return CupertinoActionSheet(
+          title: const Text('Add court photo'),
+          message: const Text('Take a new photo or choose one from your album.'),
+          actions: [
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(context).pop(ImageSource.camera),
+              child: const Text('Take photo'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(context).pop(ImageSource.gallery),
+              child: const Text('Choose from album'),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _releasePost() async {
     final body = _bodyController.text.trim();
     if (_imagePath == null) {
       await _showDraftNotice(
-        title: 'Select a photo',
-        message: 'Choose one tennis moment before publishing.',
+        title: 'Add a court photo',
+        message: 'Pick one image from your album or take a fresh court shot.',
       );
       return;
     }
 
     if (body.isEmpty) {
       await _showDraftNotice(
-        title: 'Add your thoughts',
-        message: 'Write a short post before releasing it.',
+        title: 'Write a caption',
+        message: 'Add a short note so the moment has context.',
       );
       return;
     }
