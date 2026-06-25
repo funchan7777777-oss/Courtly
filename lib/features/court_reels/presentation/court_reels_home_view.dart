@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:courtly/features/club_chats/presentation/club_chats_view.dart';
 import 'package:courtly/features/court_reels/data/court_reel_seed.dart';
 import 'package:courtly/features/court_reels/domain/court_reel.dart';
+import 'package:courtly/features/post_sharing/data/post_sharing_seed.dart';
 import 'package:courtly/shared/data/courtly_media_assets.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:courtly/shared/social/courtly_moderation.dart';
@@ -35,6 +36,7 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
   void initState() {
     super.initState();
     unawaited(_loadModerationState());
+    unawaited(_loadRelationshipState());
   }
 
   @override
@@ -45,8 +47,10 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
 
   @override
   Widget build(BuildContext context) {
+    final visibleReels = _visibleReels;
+
     return CupertinoPageScaffold(
-      child: _reels.isEmpty
+      child: visibleReels.isEmpty
           ? _EmptyReelsView(
               onPublish: () {
                 unawaited(_openComposer());
@@ -55,13 +59,13 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
           : PageView.builder(
               controller: _pageController,
               scrollDirection: Axis.vertical,
-              itemCount: _visibleReels.length,
+              itemCount: visibleReels.length,
               onPageChanged: (index) => setState(() {
                 _currentIndex = index;
                 _isPlaying = true;
               }),
               itemBuilder: (context, index) {
-                final reel = _visibleReels[index];
+                final reel = visibleReels[index];
 
                 return CourtReelStage(
                   reel: reel,
@@ -94,10 +98,14 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
     return _reels
         .where(
           (reel) =>
-              !_blockedUserIds.contains(reel.userId) &&
+              !_hiddenUserIds.contains(reel.userId) &&
               !_reportedContentIds.contains('reel:${reel.id}'),
         )
         .toList(growable: false);
+  }
+
+  Set<String> get _hiddenUserIds {
+    return _hiddenUserIdsFor(_reportedContentIds, _blockedUserIds);
   }
 
   Future<void> _loadModerationState() async {
@@ -107,6 +115,7 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
     if (!mounted) {
       return;
     }
+    final hiddenUsers = _hiddenUserIdsFor(reported, blocked);
     setState(() {
       _reportedContentIds = reported;
       _blockedUserIds = blocked;
@@ -117,13 +126,27 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
                   .where(
                     (comment) =>
                         !reported.contains('reel-comment:${comment.id}') &&
-                        !blocked.contains(comment.authorId),
+                        !hiddenUsers.contains(comment.authorId),
                   )
                   .toList(growable: false),
             ),
           )
           .toList(growable: false);
     });
+  }
+
+  Future<void> _loadRelationshipState() async {
+    final store = CourtlySocialStore.instance;
+    final nextReels = <CourtReel>[];
+    for (final reel in _reels) {
+      final requested = await store.hasRequestedFollow(reel.userId);
+      final following = await store.isFollowing(reel.userId);
+      nextReels.add(reel.copyWith(isFollowed: requested || following));
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() => _reels = nextReels);
   }
 
   void _toggleLike(String reelId) {
@@ -148,7 +171,10 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
 
     final reel = _reels[index];
     unawaited(CourtlySocialStore.instance.requestFollow(reel.userId));
-    _replaceReelAt(index, reel.copyWith(isFollowed: !reel.isFollowed));
+    _replaceReelsByUser(
+      reel.userId,
+      (entry) => entry.copyWith(isFollowed: true),
+    );
   }
 
   Future<void> _openComposer() async {
@@ -238,38 +264,66 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
   }
 
   void _openProfile(CourtReel reel) {
-    _openUserProfile(
-      CourtlyUserDirectory.fromIdentity(
-        name: reel.playerName,
-        avatarAsset: reel.avatarAsset,
-        heroAsset: reel.backdropAsset,
+    unawaited(
+      _openUserProfile(
+        CourtlyUserDirectory.fromIdentity(
+          name: reel.playerName,
+          avatarAsset: reel.avatarAsset,
+          heroAsset: reel.backdropAsset,
+        ),
       ),
     );
   }
 
   void _openCommentProfile(CourtReelComment comment) {
-    _openUserProfile(
-      CourtlyUserDirectory.fromIdentity(
-        name: comment.author,
-        avatarAsset: comment.avatarAsset,
+    unawaited(
+      _openUserProfile(
+        CourtlyUserDirectory.fromIdentity(
+          name: comment.author,
+          avatarAsset: comment.avatarAsset,
+        ),
       ),
     );
   }
 
-  void _openUserProfile(CourtlyUserProfile profile) {
-    Navigator.of(context).push(
-      CupertinoPageRoute<void>(
+  Future<void> _openUserProfile(CourtlyUserProfile profile) async {
+    await Navigator.of(context).push<CourtlyModerationResult>(
+      CupertinoPageRoute<CourtlyModerationResult>(
         builder: (_) => CourtlyUserProfilePage(
           profile: profile,
+          videos: _profileVideosFor(profile.id),
+          posts: _profilePostsFor(profile.id),
           onOpenChat: (profile) {
             unawaited(openClubChatForProfile(context, profile));
           },
           onModerated: (result) {
-            unawaited(_handleModerationResult(result));
+            unawaited(_loadModerationState());
+          },
+          onRelationshipChanged: () {
+            unawaited(_loadRelationshipState());
           },
         ),
       ),
     );
+    if (!mounted) {
+      return;
+    }
+    await _loadModerationState();
+    _settleVisibleReelIndex();
+    unawaited(_loadRelationshipState());
+  }
+
+  void _settleVisibleReelIndex() {
+    final visibleCount = _visibleReels.length;
+    if (_currentIndex < visibleCount) {
+      return;
+    }
+    setState(() {
+      _currentIndex = (visibleCount - 1).clamp(0, 999).toInt();
+    });
+    if (_pageController.hasClients && visibleCount > 0) {
+      _pageController.jumpToPage(_currentIndex);
+    }
   }
 
   void _replaceReelAt(int index, CourtReel reel) {
@@ -278,6 +332,60 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
       nextReels[index] = reel;
       _reels = nextReels;
     });
+  }
+
+  void _replaceReelsByUser(
+    String userId,
+    CourtReel Function(CourtReel reel) update,
+  ) {
+    setState(() {
+      _reels = _reels
+          .map((reel) => reel.userId == userId ? update(reel) : reel)
+          .toList(growable: false);
+    });
+  }
+
+  List<CourtlyProfileVideoItem> _profileVideosFor(String userId) {
+    return _reels
+        .where(
+          (reel) =>
+              reel.userId == userId &&
+              !_hiddenUserIds.contains(reel.userId) &&
+              !_reportedContentIds.contains('reel:${reel.id}'),
+        )
+        .map(
+          (reel) => CourtlyProfileVideoItem(
+            id: reel.id,
+            thumbnailAsset: reel.backdropAsset,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  List<CourtlyProfilePostItem> _profilePostsFor(String userId) {
+    return PostSharingSeed.openingPosts
+        .where(
+          (post) =>
+              post.authorId == userId &&
+              !_hiddenUserIds.contains(post.authorId) &&
+              !_reportedContentIds.contains('post:${post.id}'),
+        )
+        .map(
+          (post) => CourtlyProfilePostItem(
+            id: post.id,
+            imageAsset: post.imageAsset,
+            body: post.body,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Set<String> _hiddenUserIdsFor(Set<String> reported, Set<String> blocked) {
+    return {
+      ...blocked,
+      for (final contentId in reported)
+        if (contentId.startsWith('user:')) contentId.substring(5),
+    };
   }
 }
 
@@ -328,18 +436,20 @@ class CourtReelStage extends StatelessWidget {
             isPlaying: isActive && isPlaying,
           ),
         ),
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0x1A000000),
-                Color(0x00000000),
-                Color(0x4D000000),
-                Color(0xCC000000),
-              ],
-              stops: [0, 0.34, 0.64, 1],
+        const IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x1A000000),
+                  Color(0x00000000),
+                  Color(0x4D000000),
+                  Color(0xCC000000),
+                ],
+                stops: [0, 0.34, 0.64, 1],
+              ),
             ),
           ),
         ),
@@ -647,7 +757,7 @@ class _LikeRailButton extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           AnimatedScale(
-            scale: isLiked ? 1.08 : 1,
+            scale: 1,
             duration: const Duration(milliseconds: 170),
             curve: Curves.easeOutBack,
             child: SizedBox.square(
@@ -663,8 +773,8 @@ class _LikeRailButton extends StatelessWidget {
                         ? 'assets/images/Locker.png'
                         : 'assets/images/Hei.png',
                     key: ValueKey<bool>(isLiked),
-                    width: 45,
-                    height: 45,
+                    width: 28,
+                    height: 28,
                     fit: BoxFit.contain,
                   ),
                 ),
@@ -915,6 +1025,7 @@ class _CourtReelReleasePageState extends State<CourtReelReleasePage> {
   @override
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final textStyle = CupertinoTheme.of(context).textTheme.textStyle;
 
     return CupertinoPageScaffold(
       child: Stack(
@@ -927,47 +1038,31 @@ class _CourtReelReleasePageState extends State<CourtReelReleasePage> {
           ),
           DecoratedBox(
             decoration: BoxDecoration(
-              color: const Color(0xFF12002F).withValues(alpha: 0.54),
-            ),
-          ),
-          Positioned(
-            top: courtlySafeTop(context, 6),
-            left: 14,
-            child: _RoundIconButton(
-              icon: CupertinoIcons.chevron_left,
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ),
-          Positioned(
-            top: courtlySafeTop(context, 18),
-            left: 72,
-            right: 72,
-            child: Text(
-              'Video sharing',
-              textAlign: TextAlign.center,
-              style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
-                color: CupertinoColors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-                decoration: TextDecoration.none,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color(0xFF12002F).withValues(alpha: 0.9),
+                  const Color(0xFF2A005F).withValues(alpha: 0.82),
+                  const Color(0xFF090019).withValues(alpha: 0.94),
+                ],
               ),
             ),
           ),
           Positioned.fill(
             child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(28, 116, 28, 52 + keyboardInset),
+              padding: EdgeInsets.fromLTRB(26, 126, 26, 52 + keyboardInset),
               physics: const BouncingScrollPhysics(),
               child: Column(
                 children: [
                   _ReleaseUploadCard(
                     videoPath: _videoPath,
                     isPickingVideo: _isPickingVideo,
-                    onPressed: _pickVideo,
+                    onPressed: _chooseVideoSource,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 22),
                   _ReleaseMoodField(controller: _moodController),
-                  const SizedBox(height: 72),
+                  const SizedBox(height: 60),
                   CupertinoButton(
                     minimumSize: Size.zero,
                     padding: EdgeInsets.zero,
@@ -983,19 +1078,113 @@ class _CourtReelReleasePageState extends State<CourtReelReleasePage> {
               ),
             ),
           ),
+          Positioned(
+            top: courtlySafeTop(context, 6),
+            left: 14,
+            child: _RoundIconButton(
+              icon: CupertinoIcons.chevron_left,
+              onPressed: _closeComposer,
+            ),
+          ),
+          Positioned(
+            top: courtlySafeTop(context, 17),
+            left: 72,
+            right: 72,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Release Reel',
+                  textAlign: TextAlign.center,
+                  style: textStyle.copyWith(
+                    color: CupertinoColors.white,
+                    fontSize: 20,
+                    height: 1,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'One clean rally. One courtside note.',
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textStyle.copyWith(
+                    color: CupertinoColors.white.withValues(alpha: 0.62),
+                    fontSize: 12,
+                    height: 1,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Future<void> _pickVideo() async {
+  Future<void> _closeComposer() async {
+    final navigator = Navigator.of(context);
+    if (await navigator.maybePop()) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    await Navigator.of(context, rootNavigator: true).maybePop();
+  }
+
+  Future<void> _chooseVideoSource() async {
+    final source = await showCupertinoModalPopup<ImageSource>(
+      context: context,
+      builder: (context) {
+        return CupertinoActionSheet(
+          title: const Text('Add a court video'),
+          message: const Text('Choose a saved clip or record a new rally.'),
+          actions: [
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(context).pop(ImageSource.gallery),
+              child: const Text('Choose from Library'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(context).pop(ImageSource.camera),
+              child: const Text('Record Video'),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+        );
+      },
+    );
+    if (source == null || !mounted) {
+      return;
+    }
+    await _pickVideo(source);
+  }
+
+  Future<void> _pickVideo(ImageSource source) async {
     setState(() => _isPickingVideo = true);
     try {
       final pickedVideo = await _imagePicker.pickVideo(
-        source: ImageSource.gallery,
+        source: source,
+        maxDuration: const Duration(minutes: 2),
       );
       if (pickedVideo != null && mounted) {
         setState(() => _videoPath = pickedVideo.path);
+      }
+    } catch (_) {
+      if (mounted) {
+        await _showDraftNotice(
+          title: 'Video unavailable',
+          message: 'Open your library again or record a fresh clip.',
+        );
       }
     } finally {
       if (mounted) {
@@ -1008,15 +1197,15 @@ class _CourtReelReleasePageState extends State<CourtReelReleasePage> {
     final mood = _moodController.text.trim();
     if (_videoPath == null) {
       await _showDraftNotice(
-        title: 'Select a video',
-        message: 'Add one rally clip before releasing your reel.',
+        title: 'Add a video',
+        message: 'Choose a saved clip or record one before releasing.',
       );
       return;
     }
     if (mood.isEmpty) {
       await _showDraftNotice(
         title: 'Add a caption',
-        message: 'Share the mood or match detail for this reel.',
+        message: 'Write a short courtside note for this reel.',
       );
       return;
     }
@@ -1065,68 +1254,201 @@ class _ReleaseUploadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selectedName = videoPath?.split('/').last;
+    final textStyle = CupertinoTheme.of(context).textTheme.textStyle;
 
     return CupertinoButton(
       minimumSize: Size.zero,
       padding: EdgeInsets.zero,
       onPressed: onPressed,
       child: Container(
-        width: 296,
-        height: 326,
+        width: double.infinity,
+        height: 318,
         decoration: BoxDecoration(
-          color: const Color(0xFF59308B).withValues(alpha: 0.72),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF7A38B8).withValues(alpha: 0.82),
+              const Color(0xFF3B1276).withValues(alpha: 0.76),
+            ],
+          ),
           borderRadius: BorderRadius.circular(26),
           border: Border.all(
-            color: CupertinoColors.white.withValues(alpha: 0.08),
+            color: CupertinoColors.white.withValues(alpha: 0.16),
           ),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x33000000),
-              blurRadius: 20,
-              offset: Offset(0, 10),
+              color: Color(0x55000000),
+              blurRadius: 28,
+              offset: Offset(0, 14),
             ),
           ],
         ),
-        child: Center(
-          child: isPickingVideo
-              ? const CupertinoActivityIndicator(color: CupertinoColors.white)
-              : selectedName == null
-              ? Icon(
-                  CupertinoIcons.plus,
-                  color: CupertinoColors.white.withValues(alpha: 0.36),
-                  size: 72,
-                )
-              : Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 28),
-                  child: Column(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 22),
+          child: Center(
+            child: isPickingVideo
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CupertinoActivityIndicator(
+                        color: CupertinoColors.white,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Opening video picker',
+                        style: textStyle.copyWith(
+                          color: CupertinoColors.white.withValues(alpha: 0.76),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ],
+                  )
+                : selectedName == null
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset(
+                        'assets/images/Ranking.png',
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.contain,
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Add court video',
+                        style: textStyle.copyWith(
+                          color: CupertinoColors.white,
+                          fontSize: 21,
+                          height: 1,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Library or camera',
+                        style: textStyle.copyWith(
+                          color: CupertinoColors.white.withValues(alpha: 0.62),
+                          fontSize: 13,
+                          height: 1,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _ReleaseSourceBadge(
+                            icon: CupertinoIcons.photo_on_rectangle,
+                            label: 'Album',
+                          ),
+                          SizedBox(width: 10),
+                          _ReleaseSourceBadge(
+                            icon: CupertinoIcons.video_camera_solid,
+                            label: 'Camera',
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
+                : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(
-                        CupertinoIcons.video_camera_solid,
+                        CupertinoIcons.check_mark_circled_solid,
                         color: CupertinoColors.white,
                         size: 48,
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Clip ready',
+                        style: textStyle.copyWith(
+                          color: CupertinoColors.white,
+                          fontSize: 21,
+                          height: 1,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       Text(
                         selectedName,
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: CupertinoTheme.of(context).textTheme.textStyle
-                            .copyWith(
-                              color: CupertinoColors.white.withValues(
-                                alpha: 0.88,
-                              ),
-                              fontSize: 14,
-                              height: 1.25,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0,
-                              decoration: TextDecoration.none,
-                            ),
+                        style: textStyle.copyWith(
+                          color: CupertinoColors.white.withValues(alpha: 0.78),
+                          fontSize: 13,
+                          height: 1.25,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Tap to replace',
+                        style: textStyle.copyWith(
+                          color: const Color(0xFFFF70C8),
+                          fontSize: 13,
+                          height: 1,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0,
+                          decoration: TextDecoration.none,
+                        ),
                       ),
                     ],
                   ),
-                ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReleaseSourceBadge extends StatelessWidget {
+  const _ReleaseSourceBadge({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: CupertinoColors.white.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: CupertinoColors.white.withValues(alpha: 0.14),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: CupertinoColors.white, size: 15),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
+                color: CupertinoColors.white,
+                fontSize: 12,
+                height: 1,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1140,38 +1462,68 @@ class _ReleaseMoodField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFF59308B).withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: SizedBox(
-        height: 162,
-        child: CupertinoTextField(
-          controller: controller,
-          maxLines: null,
-          expands: true,
-          padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
-          placeholder: 'Please input your mood and feelings',
-          placeholderStyle: CupertinoTheme.of(context).textTheme.textStyle
-              .copyWith(
-                color: CupertinoColors.white.withValues(alpha: 0.34),
-                fontSize: 15,
-                letterSpacing: 0,
-                decoration: TextDecoration.none,
-              ),
-          style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
+    final textStyle = CupertinoTheme.of(context).textTheme.textStyle;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Caption',
+          style: textStyle.copyWith(
             color: CupertinoColors.white,
-            fontSize: 15,
-            height: 1.35,
-            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            height: 1,
+            fontWeight: FontWeight.w900,
             letterSpacing: 0,
             decoration: TextDecoration.none,
           ),
-          decoration: const BoxDecoration(),
-          cursorColor: CupertinoColors.white,
         ),
-      ),
+        const SizedBox(height: 10),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF6730A4).withValues(alpha: 0.72),
+                const Color(0xFF42147A).withValues(alpha: 0.78),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: CupertinoColors.white.withValues(alpha: 0.12),
+            ),
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            height: 148,
+            child: CupertinoTextField(
+              controller: controller,
+              maxLines: null,
+              expands: true,
+              padding: const EdgeInsets.fromLTRB(22, 19, 22, 19),
+              placeholder: 'Add a quick court note',
+              placeholderStyle: textStyle.copyWith(
+                color: CupertinoColors.white.withValues(alpha: 0.42),
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+                decoration: TextDecoration.none,
+              ),
+              style: textStyle.copyWith(
+                color: CupertinoColors.white,
+                fontSize: 15,
+                height: 1.35,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+                decoration: TextDecoration.none,
+              ),
+              decoration: const BoxDecoration(),
+              cursorColor: CupertinoColors.white,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1595,44 +1947,11 @@ class _EmptyReelsView extends StatelessWidget {
           child: _CourtReelsTopBar(onPublish: onPublish),
         ),
         Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 42),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  CupertinoIcons.video_camera_solid,
-                  color: CupertinoColors.white,
-                  size: 56,
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  'No reels in your court right now.',
-                  textAlign: TextAlign.center,
-                  style: CupertinoTheme.of(context).textTheme.textStyle
-                      .copyWith(
-                        color: CupertinoColors.white,
-                        fontSize: 18,
-                        height: 1.25,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0,
-                        decoration: TextDecoration.none,
-                      ),
-                ),
-                const SizedBox(height: 24),
-                CupertinoButton(
-                  minimumSize: Size.zero,
-                  padding: EdgeInsets.zero,
-                  onPressed: onPublish,
-                  child: Image.asset(
-                    'assets/images/Lesson.png',
-                    width: 240,
-                    height: 46,
-                    fit: BoxFit.fill,
-                  ),
-                ),
-              ],
-            ),
+          child: Image.asset(
+            'assets/images/Love.png',
+            width: 190,
+            height: 190,
+            fit: BoxFit.contain,
           ),
         ),
       ],

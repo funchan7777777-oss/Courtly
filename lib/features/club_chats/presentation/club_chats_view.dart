@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:courtly/features/club_chats/data/club_chat_seed.dart';
 import 'package:courtly/features/club_chats/domain/club_chat.dart';
+import 'package:courtly/features/court_reels/data/court_reel_seed.dart';
+import 'package:courtly/features/post_sharing/data/post_sharing_seed.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:courtly/shared/social/courtly_moderation.dart';
 import 'package:courtly/shared/social/courtly_social_store.dart';
@@ -333,6 +335,8 @@ class _ClubChatsViewState extends State<ClubChatsView> {
             avatarAsset: conversation.avatarAsset,
             heroAsset: conversation.heroAsset,
           ),
+          videos: _clubProfileVideosFor(conversation.userId),
+          posts: _clubProfilePostsFor(conversation.userId),
           onOpenChat: (profile) {
             unawaited(openClubChatForProfile(context, profile));
           },
@@ -929,6 +933,8 @@ class _ClubChatThreadPageState extends State<ClubChatThreadPage> {
       CupertinoPageRoute<void>(
         builder: (_) => CourtlyUserProfilePage(
           profile: profile,
+          videos: _clubProfileVideosFor(profile.id),
+          posts: _clubProfilePostsFor(profile.id),
           onOpenChat: (_) {},
           onModerated: (result) {
             if (result.action == CourtlyModerationAction.block) {

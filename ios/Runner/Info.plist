@@ -27,11 +27,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Courtly uses the camera for profile photos and live court video calls.</string>
+	<string>Courtly uses the camera for profile photos, court video recording, and live court video calls.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Courtly uses the microphone so both players can speak during video calls.</string>
+	<string>Courtly uses the microphone for recorded court videos and live video calls.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Courtly uses your photo library so you can choose a profile image for your court card.</string>
+	<string>Courtly uses your photo library so you can choose profile images and court video clips.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:courtly/features/club_chats/presentation/club_chats_view.dart';
+import 'package:courtly/features/court_reels/data/court_reel_seed.dart';
 import 'package:courtly/features/post_sharing/data/post_sharing_seed.dart';
 import 'package:courtly/features/post_sharing/domain/post_sharing_post.dart';
 import 'package:courtly/shared/data/courtly_media_assets.dart';
@@ -39,10 +40,13 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
   void initState() {
     super.initState();
     unawaited(_loadModerationState());
+    unawaited(_loadRelationshipState());
   }
 
   @override
   Widget build(BuildContext context) {
+    final visiblePosts = _visiblePosts;
+
     return CupertinoPageScaffold(
       child: _PostBackground(
         child: CustomScrollView(
@@ -72,30 +76,37 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
               child: _ActivePlayersStrip(onOpenProfile: _openUserProfile),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 18)),
-            SliverList.separated(
-              itemCount: _visiblePosts.length,
-              itemBuilder: (context, index) {
-                final post = _visiblePosts[index];
+            if (visiblePosts.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: _PostEmptyState(),
+              )
+            else
+              SliverList.separated(
+                itemCount: visiblePosts.length,
+                itemBuilder: (context, index) {
+                  final post = visiblePosts[index];
 
-                return Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    22,
-                    index == 0 ? 0 : 4,
-                    22,
-                    index == _visiblePosts.length - 1 ? 120 : 0,
-                  ),
-                  child: _PostCard(
-                    post: post,
-                    onOpenDetail: () => _openDetail(post),
-                    onOpenProfile: () => _openProfile(post),
-                    onToggleLike: () => _toggleLike(post.id),
-                    onToggleFollow: () => _toggleFollow(post.id),
-                    onMore: () => _showPostActions(post),
-                  ),
-                );
-              },
-              separatorBuilder: (context, index) => const SizedBox(height: 18),
-            ),
+                  return Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      22,
+                      index == 0 ? 0 : 4,
+                      22,
+                      index == visiblePosts.length - 1 ? 120 : 0,
+                    ),
+                    child: _PostCard(
+                      post: post,
+                      onOpenDetail: () => _openDetail(post),
+                      onOpenProfile: () => _openProfile(post),
+                      onToggleLike: () => _toggleLike(post.id),
+                      onToggleFollow: () => _toggleFollow(post.id),
+                      onMore: () => _showPostActions(post),
+                    ),
+                  );
+                },
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 18),
+              ),
           ],
         ),
       ),
@@ -106,10 +117,14 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
     return _posts
         .where(
           (post) =>
-              !_blockedUserIds.contains(post.authorId) &&
+              !_hiddenUserIds.contains(post.authorId) &&
               !_reportedContentIds.contains('post:${post.id}'),
         )
         .toList(growable: false);
+  }
+
+  Set<String> get _hiddenUserIds {
+    return _hiddenUserIdsFor(_reportedContentIds, _blockedUserIds);
   }
 
   Future<void> _loadModerationState() async {
@@ -119,6 +134,7 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
     if (!mounted) {
       return;
     }
+    final hiddenUsers = _hiddenUserIdsFor(reported, blocked);
     setState(() {
       _reportedContentIds = reported;
       _blockedUserIds = blocked;
@@ -129,13 +145,27 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
                   .where(
                     (comment) =>
                         !reported.contains('post-comment:${comment.id}') &&
-                        !blocked.contains(comment.authorId),
+                        !hiddenUsers.contains(comment.authorId),
                   )
                   .toList(growable: false),
             ),
           )
           .toList(growable: false);
     });
+  }
+
+  Future<void> _loadRelationshipState() async {
+    final store = CourtlySocialStore.instance;
+    final nextPosts = <PostSharingPost>[];
+    for (final post in _posts) {
+      final requested = await store.hasRequestedFollow(post.authorId);
+      final following = await store.isFollowing(post.authorId);
+      nextPosts.add(post.copyWith(isFollowed: requested || following));
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() => _posts = nextPosts);
   }
 
   Future<void> _openComposer() async {
@@ -184,21 +214,27 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
   }
 
   Future<void> _openUserProfile(CourtlyUserProfile profile) async {
-    await Navigator.of(context).push<void>(
-      CupertinoPageRoute<void>(
+    await Navigator.of(context).push<CourtlyModerationResult>(
+      CupertinoPageRoute<CourtlyModerationResult>(
         builder: (_) => CourtlyUserProfilePage(
           profile: profile,
+          videos: _profileVideosFor(profile.id),
+          posts: _profilePostsFor(profile.id),
           onOpenChat: (profile) {
             unawaited(openClubChatForProfile(context, profile));
           },
           onModerated: (result) {
-            unawaited(_handleModerationResult(result));
+            unawaited(_loadModerationState());
+          },
+          onRelationshipChanged: () {
+            unawaited(_loadRelationshipState());
           },
         ),
       ),
     );
     if (mounted) {
-      unawaited(_loadModerationState());
+      await _loadModerationState();
+      unawaited(_loadRelationshipState());
     }
   }
 
@@ -248,7 +284,10 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
 
     final post = _posts[index];
     unawaited(CourtlySocialStore.instance.requestFollow(post.authorId));
-    _replacePostAt(index, post.copyWith(isFollowed: true));
+    _replacePostsByUser(
+      post.authorId,
+      (entry) => entry.copyWith(isFollowed: true),
+    );
   }
 
   Future<void> _showPostActions(PostSharingPost post) async {
@@ -343,6 +382,60 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
       _posts = nextPosts;
     });
   }
+
+  void _replacePostsByUser(
+    String userId,
+    PostSharingPost Function(PostSharingPost post) update,
+  ) {
+    setState(() {
+      _posts = _posts
+          .map((post) => post.authorId == userId ? update(post) : post)
+          .toList(growable: false);
+    });
+  }
+
+  List<CourtlyProfileVideoItem> _profileVideosFor(String userId) {
+    return CourtReelSeed.openingFeed
+        .where(
+          (reel) =>
+              reel.userId == userId &&
+              !_hiddenUserIds.contains(reel.userId) &&
+              !_reportedContentIds.contains('reel:${reel.id}'),
+        )
+        .map(
+          (reel) => CourtlyProfileVideoItem(
+            id: reel.id,
+            thumbnailAsset: reel.backdropAsset,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  List<CourtlyProfilePostItem> _profilePostsFor(String userId) {
+    return _posts
+        .where(
+          (post) =>
+              post.authorId == userId &&
+              !_hiddenUserIds.contains(post.authorId) &&
+              !_reportedContentIds.contains('post:${post.id}'),
+        )
+        .map(
+          (post) => CourtlyProfilePostItem(
+            id: post.id,
+            imageAsset: post.imageAsset,
+            body: post.body,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Set<String> _hiddenUserIdsFor(Set<String> reported, Set<String> blocked) {
+    return {
+      ...blocked,
+      for (final contentId in reported)
+        if (contentId.startsWith('user:')) contentId.substring(5),
+    };
+  }
 }
 
 enum _PostAction { profile, report, hide }
@@ -367,6 +460,22 @@ class _PostBackground extends StatelessWidget {
         ),
         child,
       ],
+    );
+  }
+}
+
+class _PostEmptyState extends StatelessWidget {
+  const _PostEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Image.asset(
+        'assets/images/Love.png',
+        width: 190,
+        height: 190,
+        fit: BoxFit.contain,
+      ),
     );
   }
 }
@@ -2135,12 +2244,39 @@ void _openRankingProfile(BuildContext context, PostRankingEntry entry) {
     CupertinoPageRoute<void>(
       builder: (_) => CourtlyUserProfilePage(
         profile: profile,
+        videos: _profileSeedVideosFor(profile.id),
+        posts: _profileSeedPostsFor(profile.id),
         onOpenChat: (profile) {
           unawaited(openClubChatForProfile(context, profile));
         },
       ),
     ),
   );
+}
+
+List<CourtlyProfileVideoItem> _profileSeedVideosFor(String userId) {
+  return CourtReelSeed.openingFeed
+      .where((reel) => reel.userId == userId)
+      .map(
+        (reel) => CourtlyProfileVideoItem(
+          id: reel.id,
+          thumbnailAsset: reel.backdropAsset,
+        ),
+      )
+      .toList(growable: false);
+}
+
+List<CourtlyProfilePostItem> _profileSeedPostsFor(String userId) {
+  return PostSharingSeed.openingPosts
+      .where((post) => post.authorId == userId)
+      .map(
+        (post) => CourtlyProfilePostItem(
+          id: post.id,
+          imageAsset: post.imageAsset,
+          body: post.body,
+        ),
+      )
+      .toList(growable: false);
 }
 
 class _PostCommentRow extends StatelessWidget {

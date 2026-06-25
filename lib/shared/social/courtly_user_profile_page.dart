@@ -7,14 +7,20 @@ import 'package:flutter/cupertino.dart';
 class CourtlyUserProfilePage extends StatefulWidget {
   const CourtlyUserProfilePage({
     required this.profile,
+    this.videos = const [],
+    this.posts = const [],
     this.onOpenChat,
     this.onModerated,
+    this.onRelationshipChanged,
     super.key,
   });
 
   final CourtlyUserProfile profile;
+  final List<CourtlyProfileVideoItem> videos;
+  final List<CourtlyProfilePostItem> posts;
   final ValueChanged<CourtlyUserProfile>? onOpenChat;
   final ValueChanged<CourtlyModerationResult>? onModerated;
+  final VoidCallback? onRelationshipChanged;
 
   @override
   State<CourtlyUserProfilePage> createState() => _CourtlyUserProfilePageState();
@@ -78,7 +84,7 @@ class _CourtlyUserProfilePageState extends State<CourtlyUserProfilePage> {
             left: 22,
             right: 22,
             top: courtlySafeTop(context, 340),
-            bottom: 106,
+            bottom: 28,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -110,8 +116,8 @@ class _CourtlyUserProfilePageState extends State<CourtlyUserProfilePage> {
                 const SizedBox(height: 14),
                 Expanded(
                   child: _selectedTab == 0
-                      ? _ProfileVideoGrid(assets: profile.videoAssets)
-                      : _ProfilePostList(profile: profile),
+                      ? _ProfileVideoGrid(videos: widget.videos)
+                      : _ProfilePostList(posts: widget.posts),
                 ),
               ],
             ),
@@ -144,6 +150,7 @@ class _CourtlyUserProfilePageState extends State<CourtlyUserProfilePage> {
       return;
     }
     setState(() => _requestedFollow = true);
+    widget.onRelationshipChanged?.call();
     await showCourtlyActionSuccess(
       context: context,
       title: 'Request sent',
@@ -178,7 +185,7 @@ class _CourtlyUserProfilePageState extends State<CourtlyUserProfilePage> {
             'This player and their content will no longer appear in your court.',
       );
       if (mounted) {
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(result);
       }
       return;
     }
@@ -188,7 +195,32 @@ class _CourtlyUserProfilePageState extends State<CourtlyUserProfilePage> {
       title: 'Report sent',
       message: 'Thanks. This report was saved and the content was hidden.',
     );
+    if (mounted) {
+      Navigator.of(context).pop(result);
+    }
   }
+}
+
+class CourtlyProfileVideoItem {
+  const CourtlyProfileVideoItem({
+    required this.id,
+    required this.thumbnailAsset,
+  });
+
+  final String id;
+  final String thumbnailAsset;
+}
+
+class CourtlyProfilePostItem {
+  const CourtlyProfilePostItem({
+    required this.id,
+    required this.imageAsset,
+    required this.body,
+  });
+
+  final String id;
+  final String imageAsset;
+  final String body;
 }
 
 class _ProfileIdentity extends StatelessWidget {
@@ -437,14 +469,18 @@ class _ProfileTab extends StatelessWidget {
 }
 
 class _ProfileVideoGrid extends StatelessWidget {
-  const _ProfileVideoGrid({required this.assets});
+  const _ProfileVideoGrid({required this.videos});
 
-  final List<String> assets;
+  final List<CourtlyProfileVideoItem> videos;
 
   @override
   Widget build(BuildContext context) {
+    if (videos.isEmpty) {
+      return const _ProfileEmptyState();
+    }
+
     return GridView.builder(
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.only(bottom: 24),
       physics: const BouncingScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
@@ -452,7 +488,7 @@ class _ProfileVideoGrid extends StatelessWidget {
         crossAxisSpacing: 8,
         childAspectRatio: 0.78,
       ),
-      itemCount: assets.length,
+      itemCount: videos.length,
       itemBuilder: (context, index) {
         return ClipRRect(
           borderRadius: BorderRadius.circular(8),
@@ -460,7 +496,7 @@ class _ProfileVideoGrid extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               Image.asset(
-                assets[index],
+                videos[index].thumbnailAsset,
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
               ),
@@ -489,18 +525,24 @@ class _ProfileVideoGrid extends StatelessWidget {
 }
 
 class _ProfilePostList extends StatelessWidget {
-  const _ProfilePostList({required this.profile});
+  const _ProfilePostList({required this.posts});
 
-  final CourtlyUserProfile profile;
+  final List<CourtlyProfilePostItem> posts;
 
   @override
   Widget build(BuildContext context) {
+    if (posts.isEmpty) {
+      return const _ProfileEmptyState();
+    }
+
     return ListView.separated(
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.only(bottom: 24),
       physics: const BouncingScrollPhysics(),
-      itemCount: profile.postAssets.length,
+      itemCount: posts.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
+        final post = posts[index];
+
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -512,7 +554,7 @@ class _ProfilePostList extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: Image.asset(
-                  profile.postAssets[index],
+                  post.imageAsset,
                   width: 92,
                   height: 92,
                   fit: BoxFit.cover,
@@ -522,7 +564,7 @@ class _ProfilePostList extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  profile.bio,
+                  post.body,
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                   style: _profileTextStyle(
@@ -536,6 +578,22 @@ class _ProfilePostList extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ProfileEmptyState extends StatelessWidget {
+  const _ProfileEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Image.asset(
+        'assets/images/Love.png',
+        width: 180,
+        height: 180,
+        fit: BoxFit.contain,
+      ),
     );
   }
 }
