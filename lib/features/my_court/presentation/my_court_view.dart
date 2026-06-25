@@ -1051,6 +1051,7 @@ class _MyCourtPeoplePageState extends State<_MyCourtPeoplePage> {
     return openClubChatForProfile(
       context,
       CourtlyUserDirectory.fromIdentity(
+        id: person.id,
         name: person.name,
         avatarAsset: person.avatarAsset,
         heroAsset: person.heroAsset,

@@ -11,18 +11,40 @@ abstract final class CourtlyUserDirectory {
   }
 
   static CourtlyUserProfile fromIdentity({
+    String? id,
     required String name,
+    String? ageLabel,
+    String? genderLabel,
     String? avatarAsset,
     String? heroAsset,
+    String? bio,
   }) {
-    final id = idFromName(name);
-    return _profilesById[id] ??
-        _buildProfile(
-          index: id.hashCode.abs(),
-          name: name,
-          avatarAsset: avatarAsset,
-          heroAsset: heroAsset,
-        );
+    final resolvedId = id ?? idFromName(name);
+    final profile = _profilesById[resolvedId];
+    if (profile != null) {
+      return CourtlyUserProfile(
+        id: profile.id,
+        name: name,
+        ageLabel: ageLabel ?? profile.ageLabel,
+        genderLabel: genderLabel ?? profile.genderLabel,
+        avatarAsset: avatarAsset ?? profile.avatarAsset,
+        heroAsset: heroAsset ?? profile.heroAsset,
+        bio: bio ?? profile.bio,
+        videoAssets: profile.videoAssets,
+        postAssets: profile.postAssets,
+      );
+    }
+
+    return _buildProfile(
+      id: resolvedId,
+      index: resolvedId.hashCode.abs(),
+      name: name,
+      ageLabel: ageLabel,
+      genderLabel: genderLabel,
+      avatarAsset: avatarAsset,
+      heroAsset: heroAsset,
+      bio: bio,
+    );
   }
 
   static CourtlyUserProfile byId(String id) {
@@ -44,10 +66,14 @@ abstract final class CourtlyUserDirectory {
   };
 
   static CourtlyUserProfile _buildProfile({
+    String? id,
     required int index,
     required String name,
+    String? ageLabel,
+    String? genderLabel,
     String? avatarAsset,
     String? heroAsset,
+    String? bio,
   }) {
     final female = _femaleNames.contains(name);
     final heads = female
@@ -58,13 +84,13 @@ abstract final class CourtlyUserDirectory {
         .postImages[index % CourtlyMediaAssets.postImages.length];
 
     return CourtlyUserProfile(
-      id: idFromName(name),
+      id: id ?? idFromName(name),
       name: name,
-      ageLabel: '${23 + (index % 8)}',
-      genderLabel: female ? 'Female' : 'Male',
+      ageLabel: ageLabel ?? '${23 + (index % 8)}',
+      genderLabel: genderLabel ?? (female ? 'Female' : 'Male'),
       avatarAsset: avatarAsset ?? safeHead,
       heroAsset: heroAsset ?? safeHero,
-      bio: _bios[index % _bios.length],
+      bio: bio ?? _bios[index % _bios.length],
       videoAssets: [
         for (var offset = 0; offset < 6; offset++)
           CourtlyMediaAssets.postImages[(index + offset) %

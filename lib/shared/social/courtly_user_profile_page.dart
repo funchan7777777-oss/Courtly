@@ -46,9 +46,9 @@ class _CourtlyUserProfilePageState extends State<CourtlyUserProfilePage> {
         fit: StackFit.expand,
         children: [
           Image.asset(
-            profile.heroAsset,
+            profile.avatarAsset,
             fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
+            alignment: Alignment.center,
           ),
           const DecoratedBox(
             decoration: BoxDecoration(
@@ -230,41 +230,23 @@ class _ProfileIdentity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        ClipOval(
-          child: Image.asset(
-            profile.avatarAsset,
-            width: 58,
-            height: 58,
-            fit: BoxFit.cover,
-          ),
+        Text(
+          profile.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: _profileTextStyle(fontSize: 22, fontWeight: FontWeight.w900),
         ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                profile.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _profileTextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Row(
-                children: [
-                  _ProfilePill(label: profile.genderLabel),
-                  const SizedBox(width: 6),
-                  _ProfilePill(label: profile.ageLabel),
-                ],
-              ),
-            ],
-          ),
+        const SizedBox(height: 5),
+        Row(
+          children: [
+            _ProfilePill(label: profile.genderLabel),
+            const SizedBox(width: 6),
+            _ProfilePill(label: profile.ageLabel),
+          ],
         ),
       ],
     );

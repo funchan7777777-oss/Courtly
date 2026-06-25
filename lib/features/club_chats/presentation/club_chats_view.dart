@@ -356,6 +356,7 @@ class _ClubChatsViewState extends State<ClubChatsView> {
       CupertinoPageRoute<void>(
         builder: (_) => CourtlyUserProfilePage(
           profile: CourtlyUserDirectory.fromIdentity(
+            id: conversation.userId,
             name: conversation.playerName,
             avatarAsset: conversation.avatarAsset,
             heroAsset: conversation.heroAsset,
@@ -950,6 +951,7 @@ class _ClubChatThreadPageState extends State<ClubChatThreadPage> {
 
   void _openProfile() {
     final profile = CourtlyUserDirectory.fromIdentity(
+      id: _conversation.userId,
       name: _conversation.playerName,
       avatarAsset: _conversation.avatarAsset,
       heroAsset: _conversation.heroAsset,

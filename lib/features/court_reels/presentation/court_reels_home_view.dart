@@ -267,7 +267,12 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
     unawaited(
       _openUserProfile(
         CourtlyUserDirectory.fromIdentity(
+          id: reel.userId,
           name: reel.playerName,
+          ageLabel: reel.ageLabel,
+          genderLabel: reel.gender == CourtReelGender.female
+              ? 'Female'
+              : 'Male',
           avatarAsset: reel.avatarAsset,
           heroAsset: reel.backdropAsset,
         ),
@@ -279,6 +284,7 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
     unawaited(
       _openUserProfile(
         CourtlyUserDirectory.fromIdentity(
+          id: comment.authorId,
           name: comment.author,
           avatarAsset: comment.avatarAsset,
         ),

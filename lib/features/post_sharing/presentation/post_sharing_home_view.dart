@@ -206,6 +206,7 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
   Future<void> _openProfile(PostSharingPost post) async {
     await _openUserProfile(
       CourtlyUserDirectory.fromIdentity(
+        id: post.authorId,
         name: post.authorName,
         avatarAsset: post.avatarAsset,
         heroAsset: post.imageAsset,
@@ -1021,6 +1022,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
   void _openAuthorProfile() {
     widget.onOpenProfile(
       CourtlyUserDirectory.fromIdentity(
+        id: _post.authorId,
         name: _post.authorName,
         avatarAsset: _post.avatarAsset,
         heroAsset: _post.imageAsset,
@@ -1031,6 +1033,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
   void _openCommentProfile(PostSharingComment comment) {
     widget.onOpenProfile(
       CourtlyUserDirectory.fromIdentity(
+        id: comment.authorId,
         name: comment.authorName,
         avatarAsset: comment.avatarAsset,
       ),
