@@ -753,8 +753,6 @@ class _PostCard extends StatelessWidget {
                     label: _countLabel(post.comments.length),
                     onPressed: onOpenDetail,
                   ),
-                  const Spacer(),
-                  _PostDetailButton(onPressed: onOpenDetail),
                 ],
               ),
             ],
@@ -789,41 +787,6 @@ class _PostMoreButton extends StatelessWidget {
         child: Icon(
           CupertinoIcons.ellipsis,
           color: CupertinoColors.white.withValues(alpha: 0.86),
-          size: 21,
-        ),
-      ),
-    );
-  }
-}
-
-class _PostDetailButton extends StatelessWidget {
-  const _PostDetailButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoButton(
-      minimumSize: Size.zero,
-      padding: EdgeInsets.zero,
-      onPressed: onPressed,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: CupertinoColors.white.withValues(alpha: 0.92),
-          shape: BoxShape.circle,
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x44000000),
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: const Icon(
-          CupertinoIcons.chevron_right,
-          color: _postPanel,
           size: 21,
         ),
       ),
@@ -2241,7 +2204,9 @@ class _TennisCheckInPageState extends State<TennisCheckInPage> {
                       onClockIn: _clockIn,
                     ),
                     const SizedBox(height: 18),
-                    _RetroClockInCard(onPressed: _retroClockIn),
+                    _RetroClockInCard(
+                      onPressed: () => unawaited(_retroClockIn()),
+                    ),
                   ],
                 ),
               ),
@@ -2264,7 +2229,19 @@ class _TennisCheckInPageState extends State<TennisCheckInPage> {
     });
   }
 
-  void _retroClockIn() {
+  Future<void> _retroClockIn() async {
+    if (_checkedDays.contains(1)) {
+      return;
+    }
+
+    final paid = await showCourtlyCoinSpendGate(
+      context: context,
+      feature: CourtlyCoinFeature.retroCheckIn,
+    );
+    if (!paid || !mounted) {
+      return;
+    }
+
     setState(() => _checkedDays.add(1));
   }
 }
@@ -2589,6 +2566,10 @@ class _RetroClockInCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rule = CourtlyWalletStore.spendRuleFor(
+      CourtlyCoinFeature.retroCheckIn,
+    );
+
     return CupertinoButton(
       minimumSize: Size.zero,
       padding: EdgeInsets.zero,
@@ -2626,7 +2607,7 @@ class _RetroClockInCard extends StatelessWidget {
                   ),
                   child: Center(
                     child: Text(
-                      r'$3.99',
+                      '${rule.cost} coins',
                       style: _postText(context).copyWith(
                         color: CupertinoColors.white,
                         fontSize: 14,
@@ -2830,7 +2811,7 @@ class _PodiumPerson extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ringSize = isWinner ? 108.0 : 86.0;
-    final avatarSize = isWinner ? 46.0 : 38.0;
+    final avatarSize = isWinner ? 62.0 : 50.0;
     final pedestalWidth = isWinner ? 124.0 : 94.0;
     final pedestalHeight = isWinner ? 140.0 : 106.0;
     final slotHeight = isWinner ? 250.0 : 214.0;

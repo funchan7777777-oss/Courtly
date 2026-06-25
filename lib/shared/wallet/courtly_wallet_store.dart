@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum CourtlyCoinFeature { publishPost, publishReel }
+enum CourtlyCoinFeature { publishPost, publishReel, retroCheckIn }
 
 enum CourtlyPurchaseEventType {
   pending,
@@ -150,6 +150,12 @@ class CourtlyWalletStore {
       title: 'Release a video reel',
       cost: 60,
       description: 'Release one video clip to the reels court.',
+    ),
+    CourtlyCoinSpendRule(
+      feature: CourtlyCoinFeature.retroCheckIn,
+      title: 'Retro check-in',
+      cost: 20,
+      description: 'Recover one missed Tennis Diary check-in.',
     ),
   ];
 
