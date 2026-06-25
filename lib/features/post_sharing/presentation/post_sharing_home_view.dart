@@ -7,6 +7,7 @@ import 'package:courtly/features/post_sharing/data/post_sharing_seed.dart';
 import 'package:courtly/features/post_sharing/domain/post_sharing_post.dart';
 import 'package:courtly/shared/data/courtly_media_assets.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
+import 'package:courtly/shared/social/courtly_current_user_profile.dart';
 import 'package:courtly/shared/social/courtly_moderation.dart';
 import 'package:courtly/shared/social/courtly_social_store.dart';
 import 'package:courtly/shared/social/courtly_user_directory.dart';
@@ -935,6 +936,8 @@ class PostDetailPage extends StatefulWidget {
 class _PostDetailPageState extends State<PostDetailPage> {
   late PostSharingPost _post = widget.post;
   final TextEditingController _commentController = TextEditingController();
+  CourtlyCurrentUserProfile _currentUser =
+      CourtlyCurrentUserProfile.fallback();
 
   @override
   void initState() {
@@ -943,6 +946,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
       _handleRelationshipChanged,
     );
     unawaited(_syncRelationshipState());
+    unawaited(_loadCurrentUser());
   }
 
   @override
@@ -1050,6 +1054,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                   child: _DetailCommentsPanel(
                     post: _post,
                     bottomPadding: commentsBottomPadding,
+                    currentUser: _currentUser,
                     onOpenProfile: _openCommentProfile,
                     onReportComment: _reportComment,
                   ),
@@ -1113,6 +1118,15 @@ class _PostDetailPageState extends State<PostDetailPage> {
     });
   }
 
+  Future<void> _loadCurrentUser() async {
+    final currentUser = await loadCourtlyCurrentUserProfile();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _currentUser = currentUser);
+  }
+
   void _sendComment() {
     final body = _commentController.text.trim();
     if (body.isEmpty) {
@@ -1134,7 +1148,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
             authorName: 'You',
             createdAtLabel: 'now',
             body: body,
-            avatarAsset: CourtlyMediaAssets.womenHeads.first,
+            avatarAsset: _currentUser.avatarPath,
           ),
         ],
       );
@@ -1167,11 +1181,13 @@ class _PostDetailPageState extends State<PostDetailPage> {
   }
 
   void _openCommentProfile(PostSharingComment comment) {
+    final isCurrentUser =
+        comment.authorId == CourtlyCurrentUserProfile.userId;
     widget.onOpenProfile(
       CourtlyUserDirectory.fromIdentity(
         id: comment.authorId,
-        name: comment.authorName,
-        avatarAsset: comment.avatarAsset,
+        name: isCurrentUser ? _currentUser.displayName : comment.authorName,
+        avatarAsset: isCurrentUser ? _currentUser.avatarPath : comment.avatarAsset,
       ),
     );
   }
@@ -1319,12 +1335,14 @@ class _DetailCommentsPanel extends StatelessWidget {
   const _DetailCommentsPanel({
     required this.post,
     required this.bottomPadding,
+    required this.currentUser,
     required this.onOpenProfile,
     required this.onReportComment,
   });
 
   final PostSharingPost post;
   final double bottomPadding;
+  final CourtlyCurrentUserProfile currentUser;
   final ValueChanged<PostSharingComment> onOpenProfile;
   final ValueChanged<PostSharingComment> onReportComment;
 
@@ -1339,8 +1357,13 @@ class _DetailCommentsPanel extends StatelessWidget {
         itemCount: post.comments.length,
         itemBuilder: (context, index) {
           final comment = post.comments[index];
+          final avatarPath =
+              comment.authorId == CourtlyCurrentUserProfile.userId
+              ? currentUser.avatarPath
+              : comment.avatarAsset;
           return _PostCommentRow(
             comment: comment,
+            avatarPath: avatarPath,
             onOpenProfile: () => onOpenProfile(comment),
             onReport: () => onReportComment(comment),
           );
@@ -3108,11 +3131,13 @@ List<CourtlyProfilePostItem> _profileSeedPostsFor(String userId) {
 class _PostCommentRow extends StatelessWidget {
   const _PostCommentRow({
     required this.comment,
+    required this.avatarPath,
     required this.onOpenProfile,
     required this.onReport,
   });
 
   final PostSharingComment comment;
+  final String avatarPath;
   final VoidCallback onOpenProfile;
   final VoidCallback onReport;
 
@@ -3135,7 +3160,7 @@ class _PostCommentRow extends StatelessWidget {
             ),
             child: Padding(
               padding: const EdgeInsets.all(1.5),
-              child: _Avatar(assetPath: comment.avatarAsset, size: 32),
+              child: _Avatar(assetPath: avatarPath, size: 32),
             ),
           ),
         ),
@@ -3325,13 +3350,12 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imagePath = assetPath.trim();
+
     return ClipOval(
-      child: Image.asset(
-        assetPath,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-      ),
+      child: imagePath.startsWith('assets/')
+          ? Image.asset(imagePath, width: size, height: size, fit: BoxFit.cover)
+          : Image.file(File(imagePath), width: size, height: size, fit: BoxFit.cover),
     );
   }
 }
