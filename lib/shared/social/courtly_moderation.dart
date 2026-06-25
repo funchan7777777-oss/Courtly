@@ -42,17 +42,22 @@ Future<CourtlyModerationResult?> showCourtlyModerationSheet({
   );
 }
 
-Future<void> showCourtlyReviewDialog(BuildContext context) {
+Future<void> showCourtlyReviewDialog(
+  BuildContext context, {
+  String contentLabel = 'court moment',
+}) {
   return showCupertinoDialog<void>(
     context: context,
-    barrierDismissible: true,
+    barrierDismissible: false,
     builder: (context) {
-      return const _CourtlyStatusDialog(
-        icon: CupertinoIcons.sparkles,
-        title: 'Released for review',
+      return _CourtlyStatusDialog(
+        icon: CupertinoIcons.shield_lefthalf_fill,
+        eyebrow: 'Courtly review',
+        title: 'Submitted for review',
         message:
-            'Your court moment was received. It will appear after background review approves it.',
-        primaryLabel: 'Got it',
+            'Your $contentLabel is hidden while the review team checks it. Once approved, it will appear in the feed automatically.',
+        badges: const ['Hidden now', 'Appears after approval'],
+        primaryLabel: 'I understand',
       );
     },
   );
@@ -674,11 +679,15 @@ class _CourtlyStatusDialog extends StatelessWidget {
     required this.title,
     required this.message,
     required this.primaryLabel,
+    this.eyebrow,
+    this.badges = const [],
   });
 
   final IconData icon;
+  final String? eyebrow;
   final String title;
   final String message;
+  final List<String> badges;
   final String primaryLabel;
 
   @override
@@ -689,7 +698,11 @@ class _CourtlyStatusDialog extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 28),
         padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A004D),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF2B0067), Color(0xFF1A004D), Color(0xFF080015)],
+          ),
           borderRadius: BorderRadius.circular(26),
           border: Border.all(
             color: CupertinoColors.white.withValues(alpha: 0.14),
@@ -708,15 +721,52 @@ class _CourtlyStatusDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 70,
-                height: 70,
+                width: 74,
+                height: 74,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFF2DD2).withValues(alpha: 0.2),
+                  color: const Color(0xFFFF2DD2).withValues(alpha: 0.18),
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFFF2DD2)),
+                  border: Border.all(
+                    color: CupertinoColors.white.withValues(alpha: 0.24),
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x66FF2DD2),
+                      blurRadius: 22,
+                      offset: Offset(0, 10),
+                    ),
+                  ],
                 ),
                 child: Icon(icon, color: const Color(0xFFFF2DD2), size: 34),
               ),
+              if (eyebrow != null) ...[
+                const SizedBox(height: 14),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: CupertinoColors.white.withValues(alpha: 0.13),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    child: Text(
+                      eyebrow!,
+                      textAlign: TextAlign.center,
+                      style: _sheetTextStyle(
+                        color: CupertinoColors.white.withValues(alpha: 0.82),
+                        fontSize: 11,
+                        height: 1,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               Text(
                 title,
@@ -737,6 +787,45 @@ class _CourtlyStatusDialog extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              if (badges.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final badge in badges)
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: const Color(
+                            0xFFFF2DD2,
+                          ).withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: const Color(
+                              0xFFFF2DD2,
+                            ).withValues(alpha: 0.34),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 11,
+                            vertical: 7,
+                          ),
+                          child: Text(
+                            badge,
+                            style: _sheetTextStyle(
+                              color: CupertinoColors.white,
+                              fontSize: 11,
+                              height: 1,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 20),
               _SheetPrimaryButton(
                 label: primaryLabel,

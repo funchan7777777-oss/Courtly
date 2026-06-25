@@ -7,20 +7,21 @@ abstract final class PostSharingSeed {
     CourtlyMediaAssets.postImages.length,
     (index) {
       final author = _authors[index % _authors.length];
+      final authorProfile = CourtlyUserDirectory.byId(
+        CourtlyUserDirectory.idFromName(author),
+      );
       final commentAuthor = _commentAuthors[index % _commentAuthors.length];
-      final avatar = CourtlyMediaAssets.allHeads[index];
       final commentAvatar = CourtlyMediaAssets
           .allHeads[(index + 20) % CourtlyMediaAssets.allHeads.length];
 
       return PostSharingPost(
         id: 'post-${(index + 1).toString().padLeft(2, '0')}',
-        authorId: CourtlyUserDirectory.idFromName(author),
-        authorName: author,
-        createdAtLabel:
-            '2025/11/${(index + 1).toString().padLeft(2, '0')} 08:45',
+        authorId: authorProfile.id,
+        authorName: authorProfile.name,
+        createdAtLabel: _createdAtLabels[index % _createdAtLabels.length],
         body: _captions[index % _captions.length],
         imageAsset: CourtlyMediaAssets.postImages[index],
-        avatarAsset: avatar,
+        avatarAsset: authorProfile.avatarAsset,
         likes: 96 + (index * 37),
         isLiked: index.isEven,
         isFollowed: false,
@@ -94,6 +95,29 @@ abstract final class PostSharingSeed {
     'Nina Green',
     'Mike Mack',
     'Grace Liu',
+  ];
+
+  static const List<String> _createdAtLabels = [
+    '6 min ago',
+    '18 min ago',
+    '42 min ago',
+    '1 h ago',
+    '2 h ago',
+    'Today 09:20',
+    'Today 12:45',
+    'Today 18:10',
+    'Yesterday 08:45',
+    'Yesterday 16:30',
+    '2 days ago',
+    '2 days ago',
+    '3 days ago',
+    '3 days ago',
+    '4 days ago',
+    '4 days ago',
+    '5 days ago',
+    '5 days ago',
+    'Last week',
+    'Last week',
   ];
 
   static const List<String> _rankingNames = [

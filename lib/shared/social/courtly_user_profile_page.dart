@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:courtly/shared/social/courtly_moderation.dart';
 import 'package:courtly/shared/social/courtly_social_store.dart';
@@ -34,7 +36,18 @@ class _CourtlyUserProfilePageState extends State<CourtlyUserProfilePage> {
   @override
   void initState() {
     super.initState();
-    _loadRelationship();
+    CourtlySocialStore.relationshipVersion.addListener(
+      _handleRelationshipChanged,
+    );
+    unawaited(_loadRelationship());
+  }
+
+  @override
+  void dispose() {
+    CourtlySocialStore.relationshipVersion.removeListener(
+      _handleRelationshipChanged,
+    );
+    super.dispose();
   }
 
   @override
@@ -138,6 +151,13 @@ class _CourtlyUserProfilePageState extends State<CourtlyUserProfilePage> {
       _requestedFollow = requested;
       _following = following;
     });
+  }
+
+  void _handleRelationshipChanged() {
+    if (!mounted) {
+      return;
+    }
+    unawaited(_loadRelationship());
   }
 
   Future<void> _requestFollow() async {

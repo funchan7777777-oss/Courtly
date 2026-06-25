@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class CourtlyStoredMessage {
@@ -42,6 +43,7 @@ class CourtlySocialStore {
   const CourtlySocialStore._();
 
   static const instance = CourtlySocialStore._();
+  static final ValueNotifier<int> relationshipVersion = ValueNotifier<int>(0);
 
   static const _reportedContentKey = 'courtly_reported_content_ids';
   static const _blockedUsersKey = 'courtly_blocked_user_ids';
@@ -109,6 +111,7 @@ class CourtlySocialStore {
     if (!ids.contains(userId)) {
       ids.add(userId);
       await preferences.setStringList(_followRequestsKey, ids);
+      _notifyRelationshipChanged();
     }
   }
 
@@ -118,6 +121,7 @@ class CourtlySocialStore {
     if (!ids.contains(userId)) {
       ids.add(userId);
       await preferences.setStringList(_followingKey, ids);
+      _notifyRelationshipChanged();
     }
   }
 
@@ -178,5 +182,9 @@ class CourtlySocialStore {
   Future<Set<String>> _loadStringSet(String key) async {
     final preferences = await SharedPreferences.getInstance();
     return (preferences.getStringList(key) ?? <String>[]).toSet();
+  }
+
+  void _notifyRelationshipChanged() {
+    relationshipVersion.value += 1;
   }
 }

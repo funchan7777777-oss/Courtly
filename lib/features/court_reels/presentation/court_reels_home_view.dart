@@ -35,12 +35,18 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
   @override
   void initState() {
     super.initState();
+    CourtlySocialStore.relationshipVersion.addListener(
+      _handleRelationshipChanged,
+    );
     unawaited(_loadModerationState());
     unawaited(_loadRelationshipState());
   }
 
   @override
   void dispose() {
+    CourtlySocialStore.relationshipVersion.removeListener(
+      _handleRelationshipChanged,
+    );
     _pageController.dispose();
     super.dispose();
   }
@@ -80,7 +86,9 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
                     unawaited(_openComposer());
                   },
                   onLike: () => _toggleLike(reel.id),
-                  onFollow: () => _toggleFollow(reel.id),
+                  onFollow: () {
+                    unawaited(_toggleFollow(reel.id));
+                  },
                   onOpenProfile: () => _openProfile(reel),
                   onComment: () {
                     unawaited(_openComments(reel));
@@ -149,6 +157,13 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
     setState(() => _reels = nextReels);
   }
 
+  void _handleRelationshipChanged() {
+    if (!mounted) {
+      return;
+    }
+    unawaited(_loadRelationshipState());
+  }
+
   void _toggleLike(String reelId) {
     final index = _reels.indexWhere((reel) => reel.id == reelId);
     if (index == -1) {
@@ -163,14 +178,21 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
     _replaceReelAt(index, reel.copyWith(isLiked: nextLiked, likes: nextLikes));
   }
 
-  void _toggleFollow(String reelId) {
+  Future<void> _toggleFollow(String reelId) async {
     final index = _reels.indexWhere((reel) => reel.id == reelId);
     if (index == -1) {
       return;
     }
 
     final reel = _reels[index];
-    unawaited(CourtlySocialStore.instance.requestFollow(reel.userId));
+    if (reel.isFollowed) {
+      return;
+    }
+
+    await CourtlySocialStore.instance.requestFollow(reel.userId);
+    if (!mounted) {
+      return;
+    }
     _replaceReelsByUser(
       reel.userId,
       (entry) => entry.copyWith(isFollowed: true),
@@ -178,17 +200,9 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
   }
 
   Future<void> _openComposer() async {
-    final draft = await Navigator.of(context).push<CourtReelDraft>(
-      CupertinoPageRoute<CourtReelDraft>(
-        builder: (_) => const CourtReelReleasePage(),
-      ),
+    await Navigator.of(context).push<void>(
+      CupertinoPageRoute<void>(builder: (_) => const CourtReelReleasePage()),
     );
-
-    if (draft == null || !mounted) {
-      return;
-    }
-
-    await showCourtlyReviewDialog(context);
   }
 
   Future<void> _openComments(CourtReel reel) async {
@@ -1219,9 +1233,11 @@ class _CourtReelReleasePageState extends State<CourtReelReleasePage> {
     if (!mounted) {
       return;
     }
-    Navigator.of(
-      context,
-    ).pop(CourtReelDraft(mood: mood, videoPath: _videoPath!));
+    await showCourtlyReviewDialog(context, contentLabel: 'video reel');
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pop();
   }
 
   Future<void> _showDraftNotice({

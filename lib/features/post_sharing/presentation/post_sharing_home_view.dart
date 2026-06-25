@@ -39,8 +39,19 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
   @override
   void initState() {
     super.initState();
+    CourtlySocialStore.relationshipVersion.addListener(
+      _handleRelationshipChanged,
+    );
     unawaited(_loadModerationState());
     unawaited(_loadRelationshipState());
+  }
+
+  @override
+  void dispose() {
+    CourtlySocialStore.relationshipVersion.removeListener(
+      _handleRelationshipChanged,
+    );
+    super.dispose();
   }
 
   @override
@@ -99,7 +110,9 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
                       onOpenDetail: () => _openDetail(post),
                       onOpenProfile: () => _openProfile(post),
                       onToggleLike: () => _toggleLike(post.id),
-                      onToggleFollow: () => _toggleFollow(post.id),
+                      onToggleFollow: () {
+                        unawaited(_toggleFollow(post.id));
+                      },
                       onMore: () => _showPostActions(post),
                     ),
                   );
@@ -168,18 +181,17 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
     setState(() => _posts = nextPosts);
   }
 
-  Future<void> _openComposer() async {
-    final draft = await Navigator.of(context).push<PostSharingDraft>(
-      CupertinoPageRoute<PostSharingDraft>(
-        builder: (_) => const PostComposerPage(),
-      ),
-    );
-
-    if (draft == null || !mounted) {
+  void _handleRelationshipChanged() {
+    if (!mounted) {
       return;
     }
+    unawaited(_loadRelationshipState());
+  }
 
-    await showCourtlyReviewDialog(context);
+  Future<void> _openComposer() async {
+    await Navigator.of(context).push<void>(
+      CupertinoPageRoute<void>(builder: (_) => const PostComposerPage()),
+    );
   }
 
   Future<void> _openDetail(PostSharingPost post) async {
@@ -200,7 +212,12 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
       return;
     }
 
-    _replacePost(updated.id, updated);
+    _replacePostsByUser(
+      updated.authorId,
+      (post) => post.id == updated.id
+          ? updated
+          : post.copyWith(isFollowed: updated.isFollowed),
+    );
   }
 
   Future<void> _openProfile(PostSharingPost post) async {
@@ -277,14 +294,21 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
     _replacePostAt(index, post.copyWith(isLiked: nextLiked, likes: nextLikes));
   }
 
-  void _toggleFollow(String postId) {
+  Future<void> _toggleFollow(String postId) async {
     final index = _posts.indexWhere((post) => post.id == postId);
     if (index == -1) {
       return;
     }
 
     final post = _posts[index];
-    unawaited(CourtlySocialStore.instance.requestFollow(post.authorId));
+    if (post.isFollowed) {
+      return;
+    }
+
+    await CourtlySocialStore.instance.requestFollow(post.authorId);
+    if (!mounted) {
+      return;
+    }
     _replacePostsByUser(
       post.authorId,
       (entry) => entry.copyWith(isFollowed: true),
@@ -292,58 +316,20 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
   }
 
   Future<void> _showPostActions(PostSharingPost post) async {
-    final action = await showCupertinoModalPopup<_PostAction>(
+    final result = await showCourtlyModerationSheet(
       context: context,
-      builder: (context) {
-        return CupertinoActionSheet(
-          title: Text(post.authorName),
-          actions: [
-            CupertinoActionSheetAction(
-              onPressed: () => Navigator.of(context).pop(_PostAction.profile),
-              child: const Text('View profile'),
-            ),
-            CupertinoActionSheetAction(
-              onPressed: () => Navigator.of(context).pop(_PostAction.report),
-              child: const Text('Report post'),
-            ),
-            CupertinoActionSheetAction(
-              isDestructiveAction: true,
-              onPressed: () => Navigator.of(context).pop(_PostAction.hide),
-              child: const Text('Hide post'),
-            ),
-          ],
-          cancelButton: CupertinoActionSheetAction(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-        );
-      },
+      targetId: 'post:${post.id}',
+      targetType: 'post',
+      title: post.authorName,
+      userId: post.authorId,
+      summary: post.body,
     );
 
-    if (!mounted || action == null) {
+    if (!mounted || result == null) {
       return;
     }
 
-    switch (action) {
-      case _PostAction.profile:
-        unawaited(_openProfile(post));
-      case _PostAction.report:
-        final result = await showCourtlyModerationSheet(
-          context: context,
-          targetId: 'post:${post.id}',
-          targetType: 'post',
-          title: post.authorName,
-          userId: post.authorId,
-          summary: post.body,
-        );
-        if (result != null) {
-          await _handleModerationResult(result);
-        }
-      case _PostAction.hide:
-        setState(() {
-          _posts = _posts.where((entry) => entry.id != post.id).toList();
-        });
-    }
+    await _handleModerationResult(result);
   }
 
   Future<void> _handleModerationResult(CourtlyModerationResult result) async {
@@ -438,8 +424,6 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
     };
   }
 }
-
-enum _PostAction { profile, report, hide }
 
 class _PostBackground extends StatelessWidget {
   const _PostBackground({required this.child});
@@ -661,115 +645,235 @@ class _PostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _postPanel.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                CupertinoButton(
-                  minimumSize: Size.zero,
-                  padding: EdgeInsets.zero,
-                  onPressed: onOpenProfile,
-                  child: _Avatar(assetPath: post.avatarAsset, size: 40),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: CupertinoButton(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onOpenDetail,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              _postPanel.withValues(alpha: 0.98),
+              const Color(0xFF21005A).withValues(alpha: 0.98),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: CupertinoColors.white.withValues(alpha: 0.08),
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x55000000),
+              blurRadius: 18,
+              offset: Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 13),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  CupertinoButton(
                     minimumSize: Size.zero,
                     padding: EdgeInsets.zero,
                     onPressed: onOpenProfile,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          post.authorName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: _postText(context).copyWith(
-                            color: CupertinoColors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: CupertinoColors.white.withValues(alpha: 0.18),
+                          width: 1.5,
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          post.createdAtLabel,
-                          style: _postText(context).copyWith(
-                            color: CupertinoColors.white.withValues(
-                              alpha: 0.54,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: _Avatar(assetPath: post.avatarAsset, size: 44),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: CupertinoButton(
+                      minimumSize: Size.zero,
+                      padding: EdgeInsets.zero,
+                      onPressed: onOpenProfile,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            post.authorName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _postText(context).copyWith(
+                              color: CupertinoColors.white,
+                              fontSize: 16,
+                              height: 1,
+                              fontWeight: FontWeight.w900,
                             ),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            post.createdAtLabel,
+                            style: _postText(context).copyWith(
+                              color: CupertinoColors.white.withValues(
+                                alpha: 0.56,
+                              ),
+                              fontSize: 11,
+                              height: 1,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  _FollowButton(
+                    isFollowed: post.isFollowed,
+                    onPressed: onToggleFollow,
+                  ),
+                  const SizedBox(width: 8),
+                  _PostMoreButton(onPressed: onMore),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                post.body,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: _postText(context).copyWith(
+                  color: CupertinoColors.white.withValues(alpha: 0.88),
+                  fontSize: 14,
+                  height: 1.35,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              CupertinoButton(
+                minimumSize: Size.zero,
+                padding: EdgeInsets.zero,
+                onPressed: onOpenDetail,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: AspectRatio(
+                    aspectRatio: 1.24,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _PostImage(
+                          imagePath: post.imageAsset,
+                          fit: BoxFit.cover,
+                          alignment: Alignment.topCenter,
+                        ),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                CupertinoColors.black.withValues(alpha: 0.02),
+                                CupertinoColors.black.withValues(alpha: 0.2),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-                _FollowButton(
-                  isFollowed: post.isFollowed,
-                  onPressed: onToggleFollow,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              post.body,
-              style: _postText(context).copyWith(
-                color: CupertinoColors.white.withValues(alpha: 0.86),
-                fontSize: 13,
-                height: 1.35,
-                fontWeight: FontWeight.w600,
               ),
-            ),
-            const SizedBox(height: 12),
-            CupertinoButton(
-              minimumSize: Size.zero,
-              padding: EdgeInsets.zero,
-              onPressed: onOpenDetail,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: AspectRatio(
-                  aspectRatio: 1.18,
-                  child: _PostImage(
-                    imagePath: post.imageAsset,
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _PostMetricButton(
+                    iconAsset: post.isLiked
+                        ? 'assets/images/Locker.png'
+                        : 'assets/images/Hei.png',
+                    label: _countLabel(post.likes),
+                    onPressed: onToggleLike,
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  _PostMetricButton(
+                    iconData: CupertinoIcons.chat_bubble_fill,
+                    label: _countLabel(post.comments.length),
+                    onPressed: onOpenDetail,
+                  ),
+                  const Spacer(),
+                  _PostDetailButton(onPressed: onOpenDetail),
+                ],
               ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                _PostMetricButton(
-                  iconAsset: post.isLiked
-                      ? 'assets/images/Locker.png'
-                      : 'assets/images/Hei.png',
-                  label: _countLabel(post.likes),
-                  onPressed: onToggleLike,
-                ),
-                const SizedBox(width: 22),
-                _PostMetricButton(
-                  iconData: CupertinoIcons.chat_bubble_fill,
-                  label: _countLabel(post.comments.length),
-                  onPressed: onOpenDetail,
-                ),
-                const Spacer(),
-                _PostMetricButton(
-                  iconAsset: 'assets/images/Courtside.png',
-                  onPressed: onMore,
-                ),
-              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PostMoreButton extends StatelessWidget {
+  const _PostMoreButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: CupertinoColors.white.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: CupertinoColors.white.withValues(alpha: 0.12),
+          ),
+        ),
+        child: Icon(
+          CupertinoIcons.ellipsis,
+          color: CupertinoColors.white.withValues(alpha: 0.86),
+          size: 21,
+        ),
+      ),
+    );
+  }
+}
+
+class _PostDetailButton extends StatelessWidget {
+  const _PostDetailButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: CupertinoColors.white.withValues(alpha: 0.92),
+          shape: BoxShape.circle,
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x44000000),
+              blurRadius: 10,
+              offset: Offset(0, 4),
             ),
           ],
+        ),
+        child: const Icon(
+          CupertinoIcons.chevron_right,
+          color: _postPanel,
+          size: 21,
         ),
       ),
     );
@@ -795,25 +899,42 @@ class _PostMetricButton extends StatelessWidget {
       minimumSize: Size.zero,
       padding: EdgeInsets.zero,
       onPressed: onPressed,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (iconAsset != null)
-            Image.asset(iconAsset!, width: 22, height: 22, fit: BoxFit.contain)
-          else
-            Icon(iconData, color: CupertinoColors.white, size: 20),
-          if (label != null) ...[
-            const SizedBox(width: 6),
-            Text(
-              label!,
-              style: _postText(context).copyWith(
-                color: CupertinoColors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+      child: Container(
+        height: 34,
+        padding: EdgeInsets.symmetric(horizontal: label == null ? 8 : 10),
+        decoration: BoxDecoration(
+          color: CupertinoColors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(
+            color: CupertinoColors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (iconAsset != null)
+              Image.asset(
+                iconAsset!,
+                width: 21,
+                height: 21,
+                fit: BoxFit.contain,
+              )
+            else
+              Icon(iconData, color: CupertinoColors.white, size: 19),
+            if (label != null) ...[
+              const SizedBox(width: 6),
+              Text(
+                label!,
+                style: _postText(context).copyWith(
+                  color: CupertinoColors.white,
+                  fontSize: 12,
+                  height: 1,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -864,7 +985,19 @@ class _PostDetailPageState extends State<PostDetailPage> {
   final TextEditingController _commentController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    CourtlySocialStore.relationshipVersion.addListener(
+      _handleRelationshipChanged,
+    );
+    unawaited(_syncRelationshipState());
+  }
+
+  @override
   void dispose() {
+    CourtlySocialStore.relationshipVersion.removeListener(
+      _handleRelationshipChanged,
+    );
     _commentController.dispose();
     super.dispose();
   }
@@ -924,7 +1057,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
             bottom: 270 + keyboardInset,
             child: _DetailAuthorBlock(
               post: _post,
-              onFollow: _toggleFollow,
+              onFollow: () {
+                unawaited(_toggleFollow());
+              },
               onOpenProfile: _openAuthorProfile,
             ),
           ),
@@ -946,8 +1081,35 @@ class _PostDetailPageState extends State<PostDetailPage> {
     );
   }
 
-  void _toggleFollow() {
-    setState(() => _post = _post.copyWith(isFollowed: !_post.isFollowed));
+  Future<void> _toggleFollow() async {
+    if (_post.isFollowed) {
+      return;
+    }
+
+    await CourtlySocialStore.instance.requestFollow(_post.authorId);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _post = _post.copyWith(isFollowed: true));
+  }
+
+  void _handleRelationshipChanged() {
+    if (!mounted) {
+      return;
+    }
+    unawaited(_syncRelationshipState());
+  }
+
+  Future<void> _syncRelationshipState() async {
+    final store = CourtlySocialStore.instance;
+    final requested = await store.hasRequestedFollow(_post.authorId);
+    final following = await store.isFollowing(_post.authorId);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _post = _post.copyWith(isFollowed: requested || following);
+    });
   }
 
   void _sendComment() {
@@ -1254,6 +1416,9 @@ class _PostComposerPageState extends State<PostComposerPage> {
     if (source == null) {
       return;
     }
+    if (!mounted) {
+      return;
+    }
 
     setState(() => _isPickingImage = true);
     try {
@@ -1286,7 +1451,9 @@ class _PostComposerPageState extends State<PostComposerPage> {
       builder: (context) {
         return CupertinoActionSheet(
           title: const Text('Add court photo'),
-          message: const Text('Take a new photo or choose one from your album.'),
+          message: const Text(
+            'Take a new photo or choose one from your album.',
+          ),
           actions: [
             CupertinoActionSheetAction(
               onPressed: () => Navigator.of(context).pop(ImageSource.camera),
@@ -1327,9 +1494,11 @@ class _PostComposerPageState extends State<PostComposerPage> {
     if (!mounted) {
       return;
     }
-    Navigator.of(
-      context,
-    ).pop(PostSharingDraft(body: body, imagePath: _imagePath!));
+    await showCourtlyReviewDialog(context, contentLabel: 'photo post');
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pop();
   }
 
   Future<void> _showDraftNotice({
@@ -1367,36 +1536,175 @@ class _ComposerImageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selectedImagePath = imagePath;
+
     return CupertinoButton(
       minimumSize: Size.zero,
       padding: EdgeInsets.zero,
       onPressed: onPressed,
       child: Container(
-        width: 256,
-        height: 210,
+        height: 246,
         decoration: BoxDecoration(
-          color: _postPanelSoft.withValues(alpha: 0.78),
-          borderRadius: BorderRadius.circular(22),
+          color: _postPanelSoft.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: CupertinoColors.white.withValues(alpha: 0.12),
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x66000000),
+              blurRadius: 24,
+              offset: Offset(0, 16),
+            ),
+          ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(22),
-          child: isPickingImage
-              ? const Center(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (selectedImagePath != null)
+                Image.file(
+                  File(selectedImagePath),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                )
+              else
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF6F3BA8).withValues(alpha: 0.72),
+                        const Color(0xFF2B0067).withValues(alpha: 0.72),
+                      ],
+                    ),
+                  ),
+                ),
+              if (selectedImagePath != null)
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        CupertinoColors.black.withValues(alpha: 0.04),
+                        CupertinoColors.black.withValues(alpha: 0.38),
+                      ],
+                    ),
+                  ),
+                ),
+              if (isPickingImage)
+                const Center(
                   child: CupertinoActivityIndicator(
                     color: CupertinoColors.white,
                   ),
                 )
-              : imagePath == null
-              ? Icon(
-                  CupertinoIcons.plus,
-                  color: CupertinoColors.white.withValues(alpha: 0.34),
-                  size: 64,
-                )
-              : Image.file(
-                  File(imagePath!),
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
+              else
+                Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: CupertinoColors.white.withValues(alpha: 0.16),
+                          shape: BoxShape.circle,
+                        ),
+                        child: SizedBox.square(
+                          dimension: 54,
+                          child: Icon(
+                            selectedImagePath == null
+                                ? CupertinoIcons.camera_fill
+                                : CupertinoIcons.photo_fill_on_rectangle_fill,
+                            color: CupertinoColors.white,
+                            size: 27,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        selectedImagePath == null
+                            ? 'Add your court shot'
+                            : 'Change photo',
+                        style: _postText(context).copyWith(
+                          color: CupertinoColors.white,
+                          fontSize: 20,
+                          height: 1.05,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        selectedImagePath == null
+                            ? 'Camera or album'
+                            : 'Tap to replace it',
+                        style: _postText(context).copyWith(
+                          color: CupertinoColors.white.withValues(alpha: 0.72),
+                          fontSize: 12,
+                          height: 1.2,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: const [
+                          _ComposerSourcePill(
+                            icon: CupertinoIcons.camera,
+                            label: 'Camera',
+                          ),
+                          SizedBox(width: 8),
+                          _ComposerSourcePill(
+                            icon: CupertinoIcons.photo_on_rectangle,
+                            label: 'Album',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposerSourcePill extends StatelessWidget {
+  const _ComposerSourcePill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: CupertinoColors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: CupertinoColors.white.withValues(alpha: 0.12),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: CupertinoColors.white, size: 14),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: _postText(context).copyWith(
+                color: CupertinoColors.white,
+                fontSize: 11,
+                height: 1,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1412,20 +1720,25 @@ class _ComposerBodyField extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: _postPanelSoft.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(20),
+        color: _postPanelSoft.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: CupertinoColors.white.withValues(alpha: 0.12),
+        ),
       ),
       child: SizedBox(
-        height: 142,
+        height: 156,
         child: CupertinoTextField(
           controller: controller,
           maxLines: null,
           expands: true,
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-          placeholder: 'Please input your mood and feelings',
+          padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+          placeholder: 'Write the rally, score, or feeling behind this moment.',
           placeholderStyle: _postText(context).copyWith(
-            color: CupertinoColors.white.withValues(alpha: 0.34),
+            color: CupertinoColors.white.withValues(alpha: 0.42),
             fontSize: 14,
+            height: 1.3,
+            fontWeight: FontWeight.w800,
           ),
           style: _postText(context).copyWith(
             color: CupertinoColors.white,
@@ -1435,6 +1748,55 @@ class _ComposerBodyField extends StatelessWidget {
           ),
           decoration: const BoxDecoration(),
           cursorColor: CupertinoColors.white,
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposerReleaseButton extends StatelessWidget {
+  const _ComposerReleaseButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      child: Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: _postPink,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x66FF2DD2),
+              blurRadius: 20,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              CupertinoIcons.paperplane_fill,
+              color: CupertinoColors.white,
+              size: 19,
+            ),
+            const SizedBox(width: 9),
+            Text(
+              'Publish post',
+              style: _postText(context).copyWith(
+                color: CupertinoColors.white,
+                fontSize: 17,
+                height: 1,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1453,6 +1815,23 @@ class PostUserHomePage extends StatefulWidget {
 class _PostUserHomePageState extends State<PostUserHomePage> {
   late PostSharingPost _post = widget.post;
   int _selectedTab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    CourtlySocialStore.relationshipVersion.addListener(
+      _handleRelationshipChanged,
+    );
+    unawaited(_syncRelationshipState());
+  }
+
+  @override
+  void dispose() {
+    CourtlySocialStore.relationshipVersion.removeListener(
+      _handleRelationshipChanged,
+    );
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1505,7 +1884,9 @@ class _PostUserHomePageState extends State<PostUserHomePage> {
               children: [
                 _DetailAuthorBlock(
                   post: _post,
-                  onFollow: _toggleFollow,
+                  onFollow: () {
+                    unawaited(_toggleFollow());
+                  },
                   onOpenProfile: () {},
                 ),
                 const SizedBox(height: 18),
@@ -1527,8 +1908,35 @@ class _PostUserHomePageState extends State<PostUserHomePage> {
     );
   }
 
-  void _toggleFollow() {
-    setState(() => _post = _post.copyWith(isFollowed: !_post.isFollowed));
+  Future<void> _toggleFollow() async {
+    if (_post.isFollowed) {
+      return;
+    }
+
+    await CourtlySocialStore.instance.requestFollow(_post.authorId);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _post = _post.copyWith(isFollowed: true));
+  }
+
+  void _handleRelationshipChanged() {
+    if (!mounted) {
+      return;
+    }
+    unawaited(_syncRelationshipState());
+  }
+
+  Future<void> _syncRelationshipState() async {
+    final store = CourtlySocialStore.instance;
+    final requested = await store.hasRequestedFollow(_post.authorId);
+    final following = await store.isFollowing(_post.authorId);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _post = _post.copyWith(isFollowed: requested || following);
+    });
   }
 }
 
