@@ -18,7 +18,7 @@ abstract final class CourtReelSeed {
       avatarAsset: CourtlyMediaAssets.womenHeads[0],
       likes: 46,
       shares: 1245,
-      isLiked: true,
+      isLiked: false,
       isFollowed: false,
       comments: [
         CourtReelComment(
@@ -131,7 +131,7 @@ abstract final class CourtReelSeed {
       avatarAsset: CourtlyMediaAssets.womenHeads[7],
       likes: 52,
       shares: 834,
-      isLiked: true,
+      isLiked: false,
       isFollowed: false,
       comments: [
         CourtReelComment(
@@ -183,7 +183,7 @@ abstract final class CourtReelSeed {
       avatarAsset: CourtlyMediaAssets.menHeads[4],
       likes: 63,
       shares: 640,
-      isLiked: true,
+      isLiked: false,
       isFollowed: false,
       comments: [
         CourtReelComment(
@@ -262,7 +262,7 @@ abstract final class CourtReelSeed {
       avatarAsset: CourtlyMediaAssets.womenHeads[12],
       likes: 41,
       shares: 888,
-      isLiked: true,
+      isLiked: false,
       isFollowed: false,
       comments: [
         CourtReelComment(
@@ -314,7 +314,7 @@ abstract final class CourtReelSeed {
       avatarAsset: CourtlyMediaAssets.womenHeads[14],
       likes: 58,
       shares: 940,
-      isLiked: true,
+      isLiked: false,
       isFollowed: false,
       comments: [
         CourtReelComment(

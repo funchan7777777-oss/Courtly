@@ -535,29 +535,11 @@ class _CourtReelsTopBar extends StatelessWidget {
           minimumSize: Size.zero,
           padding: EdgeInsets.zero,
           onPressed: onPublish,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: CupertinoColors.white.withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(999),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x33000000),
-                  blurRadius: 14,
-                  offset: Offset(0, 5),
-                ),
-              ],
-            ),
-            child: SizedBox.square(
-              dimension: 48,
-              child: Center(
-                child: Image.asset(
-                  'assets/images/Ranking.png',
-                  width: 34,
-                  height: 34,
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
+          child: Image.asset(
+            'assets/images/Ranking.png',
+            width: 52,
+            height: 52,
+            fit: BoxFit.contain,
           ),
         ),
       ],
@@ -681,8 +663,8 @@ class _LikeRailButton extends StatelessWidget {
                         ? 'assets/images/Locker.png'
                         : 'assets/images/Hei.png',
                     key: ValueKey<bool>(isLiked),
-                    width: 38,
-                    height: 38,
+                    width: 45,
+                    height: 45,
                     fit: BoxFit.contain,
                   ),
                 ),
@@ -713,13 +695,7 @@ class _RailShell extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: CupertinoColors.black.withValues(alpha: 0.24),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: SizedBox.square(dimension: 48, child: Center(child: child)),
-          ),
+          SizedBox.square(dimension: 48, child: Center(child: child)),
           if (label != null) ...[
             const SizedBox(height: 4),
             _AnimatedRailCount(label: label!),
@@ -874,8 +850,8 @@ class _ReelCaptionBlock extends StatelessWidget {
                 reel.isFollowed
                     ? 'assets/images/Chat.png'
                     : 'assets/images/Huddle.png',
-                width: 112,
-                height: 35,
+                width: 97,
+                height: 30,
                 fit: BoxFit.fill,
               ),
             ),

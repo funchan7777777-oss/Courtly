@@ -119,77 +119,110 @@ class _CourtlyModerationSheet extends StatefulWidget {
 }
 
 class _CourtlyModerationSheetState extends State<_CourtlyModerationSheet> {
-  CourtlyModerationAction _selectedAction = CourtlyModerationAction.block;
+  late CourtlyModerationAction _selectedAction;
   String _reason = _reasons.first;
   bool _choosingReason = false;
   bool _submitting = false;
 
   @override
+  void initState() {
+    super.initState();
+    _selectedAction = widget.allowBlock
+        ? CourtlyModerationAction.block
+        : CourtlyModerationAction.report;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final width = (MediaQuery.sizeOf(context).width - 54)
-        .clamp(280.0, 336.0)
+    final sheetWidth = (MediaQuery.sizeOf(context).width - 54)
+        .clamp(280.0, 378.0)
         .toDouble();
+    final sheetHeight = sheetWidth / _artworkAspectRatio;
+    final horizontalInset = (sheetWidth * 0.07).clamp(20.0, 28.0).toDouble();
+    final topInset = (sheetHeight * 0.34).clamp(118.0, 162.0).toDouble();
+    final bottomInset = (sheetWidth * 0.075).clamp(22.0, 30.0).toDouble();
 
     return Center(
       child: DefaultTextStyle(
         style: _sheetTextStyle(),
-        child: Container(
-          width: width,
-          decoration: BoxDecoration(
-            color: const Color(0xFF2A005F),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x77000000),
-                blurRadius: 30,
-                offset: Offset(0, 16),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.asset(
-                  'assets/images/Meetup.png',
-                  height: 126,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    child: _choosingReason
-                        ? _ReportReasonStep(
-                            key: const ValueKey<String>('reason'),
-                            reason: _reason,
-                            submitting: _submitting,
-                            onReasonChanged: (reason) {
-                              setState(() => _reason = reason);
-                            },
-                            onBack: () {
-                              setState(() => _choosingReason = false);
-                            },
-                            onConfirm: _report,
-                          )
-                        : _ModerationActionStep(
-                            key: const ValueKey<String>('action'),
-                            selectedAction: _selectedAction,
-                            allowBlock: widget.allowBlock,
-                            submitting: _submitting,
-                            onChanged: (action) {
-                              setState(() => _selectedAction = action);
-                            },
-                            onConfirm: _confirmAction,
-                          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: sheetWidth,
+              height: sheetHeight,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x77000000),
+                    blurRadius: 30,
+                    offset: Offset(0, 16),
                   ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Image.asset(
+                        'assets/images/Meetup.png',
+                        fit: BoxFit.fill,
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          horizontalInset,
+                          topInset,
+                          horizontalInset,
+                          bottomInset,
+                        ),
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 180),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            child: _choosingReason
+                                ? _ReportReasonStep(
+                                    key: const ValueKey<String>('reason'),
+                                    reason: _reason,
+                                    sheetWidth: sheetWidth,
+                                    submitting: _submitting,
+                                    onReasonChanged: (reason) {
+                                      setState(() => _reason = reason);
+                                    },
+                                    onBack: () {
+                                      setState(() => _choosingReason = false);
+                                    },
+                                    onConfirm: _report,
+                                  )
+                                : _ModerationActionStep(
+                                    key: const ValueKey<String>('action'),
+                                    selectedAction: _selectedAction,
+                                    sheetWidth: sheetWidth,
+                                    allowBlock: widget.allowBlock,
+                                    submitting: _submitting,
+                                    onChanged: (action) {
+                                      setState(() => _selectedAction = action);
+                                    },
+                                    onConfirm: _confirmAction,
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(height: 18),
+            _ModerationDismissButton(
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
         ),
       ),
     );
@@ -250,11 +283,13 @@ class _CourtlyModerationSheetState extends State<_CourtlyModerationSheet> {
     'Impersonation',
     'Other',
   ];
+  static const double _artworkAspectRatio = 594 / 746;
 }
 
 class _ModerationActionStep extends StatelessWidget {
   const _ModerationActionStep({
     required this.selectedAction,
+    required this.sheetWidth,
     required this.allowBlock,
     required this.submitting,
     required this.onChanged,
@@ -263,6 +298,7 @@ class _ModerationActionStep extends StatelessWidget {
   });
 
   final CourtlyModerationAction selectedAction;
+  final double sheetWidth;
   final bool allowBlock;
   final bool submitting;
   final ValueChanged<CourtlyModerationAction> onChanged;
@@ -270,6 +306,11 @@ class _ModerationActionStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rowHeight = (sheetWidth * 0.18).clamp(50.0, 68.0).toDouble();
+    final rowGap = (sheetWidth * 0.06).clamp(16.0, 24.0).toDouble();
+    final buttonGap = (sheetWidth * 0.08).clamp(24.0, 31.0).toDouble();
+    final buttonWidth = (sheetWidth * 0.73).clamp(214.0, 276.0).toDouble();
+
     return Column(
       key: key,
       mainAxisSize: MainAxisSize.min,
@@ -277,20 +318,26 @@ class _ModerationActionStep extends StatelessWidget {
         _ModerationChoiceRow(
           label: 'Report',
           icon: CupertinoIcons.exclamationmark_square_fill,
+          height: rowHeight,
           selected: selectedAction == CourtlyModerationAction.report,
           onPressed: () => onChanged(CourtlyModerationAction.report),
         ),
         if (allowBlock) ...[
-          const SizedBox(height: 18),
+          SizedBox(height: rowGap),
           _ModerationChoiceRow(
             label: 'Block',
             icon: CupertinoIcons.exclamationmark_circle_fill,
+            height: rowHeight,
             selected: selectedAction == CourtlyModerationAction.block,
             onPressed: () => onChanged(CourtlyModerationAction.block),
           ),
         ],
-        const SizedBox(height: 28),
-        _SheetImageButton(busy: submitting, onPressed: onConfirm),
+        SizedBox(height: buttonGap),
+        _SheetImageButton(
+          width: buttonWidth,
+          busy: submitting,
+          onPressed: onConfirm,
+        ),
       ],
     );
   }
@@ -299,6 +346,7 @@ class _ModerationActionStep extends StatelessWidget {
 class _ReportReasonStep extends StatelessWidget {
   const _ReportReasonStep({
     required this.reason,
+    required this.sheetWidth,
     required this.submitting,
     required this.onReasonChanged,
     required this.onBack,
@@ -307,6 +355,7 @@ class _ReportReasonStep extends StatelessWidget {
   });
 
   final String reason;
+  final double sheetWidth;
   final bool submitting;
   final ValueChanged<String> onReasonChanged;
   final VoidCallback onBack;
@@ -314,6 +363,8 @@ class _ReportReasonStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final buttonWidth = (sheetWidth * 0.73).clamp(214.0, 276.0).toDouble();
+
     return Column(
       key: key,
       mainAxisSize: MainAxisSize.min,
@@ -332,9 +383,14 @@ class _ReportReasonStep extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              'Report type',
-              style: _sheetTextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+            Expanded(
+              child: Text(
+                'Report type',
+                style: _sheetTextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
             ),
           ],
         ),
@@ -352,7 +408,13 @@ class _ReportReasonStep extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
-        _SheetImageButton(busy: submitting, onPressed: onConfirm),
+        Center(
+          child: _SheetImageButton(
+            width: buttonWidth,
+            busy: submitting,
+            onPressed: onConfirm,
+          ),
+        ),
       ],
     );
   }
@@ -362,12 +424,14 @@ class _ModerationChoiceRow extends StatelessWidget {
   const _ModerationChoiceRow({
     required this.label,
     required this.icon,
+    required this.height,
     required this.selected,
     required this.onPressed,
   });
 
   final String label;
   final IconData icon;
+  final double height;
   final bool selected;
   final VoidCallback onPressed;
 
@@ -378,7 +442,7 @@ class _ModerationChoiceRow extends StatelessWidget {
       padding: EdgeInsets.zero,
       onPressed: onPressed,
       child: Container(
-        height: 54,
+        height: height,
         decoration: BoxDecoration(
           color: const Color(0xFF59308B),
           borderRadius: BorderRadius.circular(999),
@@ -415,9 +479,45 @@ class _ModerationChoiceRow extends StatelessWidget {
 }
 
 class _SheetImageButton extends StatelessWidget {
-  const _SheetImageButton({required this.busy, required this.onPressed});
+  const _SheetImageButton({
+    required this.width,
+    required this.busy,
+    required this.onPressed,
+  });
 
+  final double width;
   final bool busy;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final height = (width * 98 / 428).clamp(45.0, 63.0).toDouble();
+
+    return CupertinoButton(
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      onPressed: busy ? null : onPressed,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned.fill(
+              child: Image.asset('assets/images/Trophy.png', fit: BoxFit.fill),
+            ),
+            if (busy)
+              const CupertinoActivityIndicator(color: CupertinoColors.white),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ModerationDismissButton extends StatelessWidget {
+  const _ModerationDismissButton({required this.onPressed});
+
   final VoidCallback onPressed;
 
   @override
@@ -425,15 +525,26 @@ class _SheetImageButton extends StatelessWidget {
     return CupertinoButton(
       minimumSize: Size.zero,
       padding: EdgeInsets.zero,
-      onPressed: busy ? null : onPressed,
-      child: SizedBox(
-        width: 242,
-        height: 55,
-        child: busy
-            ? const Center(
-                child: CupertinoActivityIndicator(color: CupertinoColors.white),
-              )
-            : Image.asset('assets/images/Trophy.png', fit: BoxFit.fill),
+      onPressed: onPressed,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: const BoxDecoration(
+          color: CupertinoColors.white,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Icon(
+          CupertinoIcons.xmark,
+          color: Color(0xFF45454D),
+          size: 20,
+        ),
       ),
     );
   }
