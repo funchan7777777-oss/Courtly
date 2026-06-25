@@ -51,6 +51,31 @@ Future<void> openClubChatForProfile(
   );
 }
 
+List<CourtlyProfileVideoItem> _clubProfileVideosFor(String userId) {
+  return CourtReelSeed.openingFeed
+      .where((reel) => reel.userId == userId)
+      .map(
+        (reel) => CourtlyProfileVideoItem(
+          id: reel.id,
+          thumbnailAsset: reel.backdropAsset,
+        ),
+      )
+      .toList(growable: false);
+}
+
+List<CourtlyProfilePostItem> _clubProfilePostsFor(String userId) {
+  return PostSharingSeed.openingPosts
+      .where((post) => post.authorId == userId)
+      .map(
+        (post) => CourtlyProfilePostItem(
+          id: post.id,
+          imageAsset: post.imageAsset,
+          body: post.body,
+        ),
+      )
+      .toList(growable: false);
+}
+
 ClubChatMessage _messageFromStored(CourtlyStoredMessage message) {
   return ClubChatMessage(
     id: message.id,
@@ -2072,24 +2097,12 @@ class _EmptyRequestStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 12, 22, 8),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: _chatPanel.withValues(alpha: 0.76),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Center(
-          child: Text(
-            'No new friend requests right now.',
-            style: _clubTextStyle(
-              color: _chatWhite.withValues(alpha: 0.7),
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+    return Center(
+      child: Image.asset(
+        'assets/images/Love.png',
+        width: 150,
+        height: 150,
+        fit: BoxFit.contain,
       ),
     );
   }
@@ -2101,23 +2114,11 @@ class _EmptyConversationPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: _chatPanel.withValues(alpha: 0.78),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          'Your court chats are clear. Follow a player to start a new rally.',
-          textAlign: TextAlign.center,
-          style: _clubTextStyle(
-            color: _chatWhite.withValues(alpha: 0.75),
-            fontSize: 14,
-            height: 1.35,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+      child: Image.asset(
+        'assets/images/Love.png',
+        width: 190,
+        height: 190,
+        fit: BoxFit.contain,
       ),
     );
   }
