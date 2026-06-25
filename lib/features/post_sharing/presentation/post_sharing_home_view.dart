@@ -2122,6 +2122,9 @@ class _TennisCheckInPageState extends State<TennisCheckInPage> {
 
   @override
   Widget build(BuildContext context) {
+    final safeTop = courtlySafeTop(context);
+    final safeBottom = courtlySafeBottom(context);
+
     return CupertinoPageScaffold(
       child: _PostBackground(
         child: Stack(
@@ -2150,63 +2153,26 @@ class _TennisCheckInPageState extends State<TennisCheckInPage> {
               ),
             ),
             Positioned.fill(
-              top: courtlySafeTop(context, 68),
-              bottom: 114,
-              left: 22,
-              right: 22,
-              child: Column(
-                children: [
-                  _DiaryBoard(days: _checkInDays),
-                  const SizedBox(height: 18),
-                  _CalendarCard(checkedDays: _checkedDays),
-                  const SizedBox(height: 18),
-                  CupertinoButton(
-                    minimumSize: Size.zero,
-                    padding: EdgeInsets.zero,
-                    onPressed: _clockIn,
-                    child: Image.asset(
-                      'assets/images/Footwork.png',
-                      width: double.infinity,
-                      height: 55,
-                      fit: BoxFit.fill,
+              top: safeTop + 76,
+              left: 24,
+              right: 24,
+              bottom: 0,
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.only(bottom: safeBottom + 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _DiaryBoard(days: _checkInDays),
+                    const SizedBox(height: 10),
+                    _CalendarCard(
+                      checkedDays: _checkedDays,
+                      onClockIn: _clockIn,
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  CupertinoButton(
-                    minimumSize: Size.zero,
-                    padding: EdgeInsets.zero,
-                    onPressed: _retroClockIn,
-                    child: Container(
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFA8F2E5),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const SizedBox(width: 18),
-                          Expanded(
-                            child: Text(
-                              'Forgot to clock in for 1 day',
-                              style: _postText(context).copyWith(
-                                color: const Color(0xFF4E9A91),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          Image.asset(
-                            'assets/images/Tiebreak.png',
-                            width: 104,
-                            height: 27,
-                            fit: BoxFit.fill,
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                    const SizedBox(height: 18),
+                    _RetroClockInCard(onPressed: _retroClockIn),
+                  ],
+                ),
               ),
             ),
           ],
@@ -2239,55 +2205,69 @@ class _DiaryBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 150,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F3FF),
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return AspectRatio(
+      aspectRatio: 1.78,
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
           Positioned.fill(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.asset(
-                'assets/images/Backhand.png',
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
+            top: 10,
+            child: Container(
+              decoration: BoxDecoration(
+                color: CupertinoColors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.all(10),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      'assets/images/Backhand.png',
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                    ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF44D98F).withValues(alpha: 0.68),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFF44D98F).withValues(alpha: 0.62),
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
+          const Positioned(
+            top: 0,
+            left: 22,
+            right: 22,
+            child: _NotebookRings(),
           ),
           Positioned(
-            left: 18,
-            top: 22,
+            left: 24,
+            top: 42,
             child: Text(
               '$days',
               style: _postText(context).copyWith(
                 color: CupertinoColors.white,
-                fontSize: 34,
+                fontSize: 44,
+                height: 0.92,
                 fontWeight: FontWeight.w900,
               ),
             ),
           ),
           Positioned(
-            left: 18,
-            top: 70,
+            left: 24,
+            top: 94,
             width: 150,
             child: Text(
-              'You have checked in continuously',
+              'You have checked in\ncontinuously',
               style: _postText(context).copyWith(
-                color: CupertinoColors.white.withValues(alpha: 0.88),
-                fontSize: 11,
-                height: 1.25,
-                fontWeight: FontWeight.w700,
+                color: CupertinoColors.white.withValues(alpha: 0.92),
+                fontSize: 13,
+                height: 1.18,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),
@@ -2298,43 +2278,85 @@ class _DiaryBoard extends StatelessWidget {
 }
 
 class _CalendarCard extends StatelessWidget {
-  const _CalendarCard({required this.checkedDays});
+  const _CalendarCard({required this.checkedDays, required this.onClockIn});
 
   final Set<int> checkedDays;
+  final VoidCallback onClockIn;
 
   @override
   Widget build(BuildContext context) {
-    final days = List<int>.generate(35, (index) => index - 1);
+    const days = <int>[
+      31,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      27,
+      28,
+      29,
+      30,
+      1,
+      2,
+      3,
+      4,
+      5,
+    ];
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.fromLTRB(18, 22, 18, 18),
       decoration: BoxDecoration(
         color: CupertinoColors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset(
-                'assets/images/Ace.png',
-                width: 18,
-                height: 18,
-                fit: BoxFit.contain,
+              const Icon(
+                CupertinoIcons.chevron_left_circle_fill,
+                color: _postPink,
+                size: 14,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 14),
               Text(
                 '2026/06',
                 style: _postText(context).copyWith(
-                  color: const Color(0xFF6E6A75),
-                  fontSize: 13,
+                  color: const Color(0xFF36313D),
+                  fontSize: 15,
                   fontWeight: FontWeight.w800,
                 ),
               ),
+              const SizedBox(width: 14),
+              Icon(
+                CupertinoIcons.chevron_right_circle_fill,
+                color: const Color(0xFFBFB9C6).withValues(alpha: 0.9),
+                size: 14,
+              ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           Row(
             children: [
               for (final label in [
@@ -2352,27 +2374,28 @@ class _CalendarCard extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: _postText(context).copyWith(
                       color: const Color(0xFFC4BECF),
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              mainAxisSpacing: 7,
-              crossAxisSpacing: 7,
+              mainAxisSpacing: 5,
+              crossAxisSpacing: 5,
             ),
             itemCount: days.length,
             itemBuilder: (context, index) {
               final day = days[index];
-              final active = day > 0 && checkedDays.contains(day);
-              final highlighted = day == 1 || day == 24;
+              final belongsToMonth = index > 0 && index < 30;
+              final active = belongsToMonth && checkedDays.contains(day);
+              final highlighted = belongsToMonth && day == 1;
 
               return DecoratedBox(
                 decoration: BoxDecoration(
@@ -2380,27 +2403,179 @@ class _CalendarCard extends StatelessWidget {
                       ? _postPink
                       : highlighted
                       ? const Color(0xFFFFDCEB)
-                      : const Color(0xFFF7F4F8),
-                  borderRadius: BorderRadius.circular(4),
+                      : const Color(0xFFF3F1F4),
+                  borderRadius: BorderRadius.circular(5),
                 ),
                 child: Center(
                   child: active
-                      ? const Icon(
-                          CupertinoIcons.check_mark,
-                          color: CupertinoColors.white,
-                          size: 13,
+                      ? const DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: _postPink,
+                            shape: BoxShape.circle,
+                          ),
+                          child: SizedBox.square(
+                            dimension: 18,
+                            child: Icon(
+                              CupertinoIcons.check_mark,
+                              color: CupertinoColors.white,
+                              size: 12,
+                            ),
+                          ),
                         )
                       : Text(
-                          day > 0 ? '$day' : '',
+                          '$day',
                           style: _postText(context).copyWith(
-                            color: const Color(0xFF98909E),
-                            fontSize: 11,
+                            color: belongsToMonth
+                                ? const Color(0xFF25212B)
+                                : const Color(0xFFC9C4CD),
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                 ),
               );
             },
+          ),
+          const SizedBox(height: 26),
+          CupertinoButton(
+            minimumSize: Size.zero,
+            padding: EdgeInsets.zero,
+            onPressed: onClockIn,
+            child: Image.asset(
+              'assets/images/Footwork.png',
+              width: double.infinity,
+              height: 55,
+              fit: BoxFit.fill,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotebookRings extends StatelessWidget {
+  const _NotebookRings();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: List.generate(
+        7,
+        (index) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            _NotebookRing(),
+            SizedBox(width: 6),
+            _NotebookRing(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotebookRing extends StatelessWidget {
+  const _NotebookRing();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 4,
+      height: 22,
+      decoration: BoxDecoration(
+        color: const Color(0xFF5B5662),
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x55000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Container(
+          width: 2,
+          height: 10,
+          margin: const EdgeInsets.only(top: 2),
+          decoration: BoxDecoration(
+            color: CupertinoColors.white.withValues(alpha: 0.52),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RetroClockInCard extends StatelessWidget {
+  const _RetroClockInCard({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            height: 62,
+            decoration: BoxDecoration(
+              color: const Color(0xFFA8F2E5),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            padding: const EdgeInsets.fromLTRB(18, 14, 14, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Forgot to clock in for 1 day',
+                    textAlign: TextAlign.center,
+                    style: _postText(context).copyWith(
+                      color: const Color(0xFF2E9F94),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Container(
+                  height: 34,
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF20A89A),
+                    borderRadius: BorderRadius.circular(17),
+                  ),
+                  child: Center(
+                    child: Text(
+                      r'$3.99',
+                      style: _postText(context).copyWith(
+                        color: CupertinoColors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            right: 0,
+            top: -16,
+            child: Image.asset(
+              'assets/images/Tiebreak.png',
+              width: 116,
+              height: 30,
+              fit: BoxFit.fill,
+            ),
           ),
         ],
       ),
@@ -2414,22 +2589,30 @@ class TennisRankingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final entries = PostSharingSeed.ranking;
+    final safeTop = courtlySafeTop(context);
 
     return CupertinoPageScaffold(
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            'assets/images/Strings.png',
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/Strings.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
           ),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xCCED88FF), Color(0xFF090D14)],
+                colors: [
+                  Color(0x221B0D2F),
+                  Color(0x332F154B),
+                  Color(0xDD070910),
+                ],
+                stops: [0, 0.52, 1],
               ),
             ),
           ),
@@ -2442,27 +2625,72 @@ class TennisRankingPage extends StatelessWidget {
             ),
           ),
           Positioned(
-            top: courtlySafeTop(context, 68),
-            left: 24,
-            child: Image.asset(
-              'assets/images/Umpire.png',
-              width: 220,
-              height: 52,
-              fit: BoxFit.contain,
+            top: courtlySafeTop(context, 20),
+            left: 74,
+            right: 74,
+            child: Text(
+              'Tennis Diary',
+              textAlign: TextAlign.center,
+              style: _postText(context).copyWith(
+                color: CupertinoColors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
-          Positioned(
-            left: 22,
-            right: 22,
-            top: courtlySafeTop(context, 158),
-            child: _RankingPodium(entries: entries.take(3).toList()),
-          ),
-          Positioned(
-            left: 22,
-            right: 22,
-            top: courtlySafeTop(context, 350),
-            bottom: 108,
-            child: _RankingList(entries: entries.skip(3).toList()),
+          Positioned.fill(
+            top: safeTop + 78,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
+                24,
+                0,
+                24,
+                courtlySafeBottom(context, 34),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Tennis Rankings',
+                    style: _postText(context).copyWith(
+                      color: const Color(0xFFE3FFFF),
+                      fontSize: 28,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                      shadows: const [
+                        Shadow(
+                          color: Color(0x66000000),
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'THE CHARTS',
+                    style: _postText(context).copyWith(
+                      color: CupertinoColors.white,
+                      fontSize: 15,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                      shadows: const [
+                        Shadow(
+                          color: Color(0x66000000),
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 42),
+                  _RankingPodium(entries: entries.take(3).toList()),
+                  const SizedBox(height: 4),
+                  _RankingList(entries: entries.skip(3).toList()),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -2478,27 +2706,33 @@ class _RankingPodium extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 170,
+      height: 260,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
             child: _PodiumPerson(
               entry: entries[1],
-              asset: 'assets/images/Drop.png',
+              ringAsset: 'assets/images/Drop.png',
+              pedestalAsset: 'assets/images/second.png',
+              place: 2,
             ),
           ),
           Expanded(
             child: _PodiumPerson(
               entry: entries[0],
-              asset: 'assets/images/Advantage.png',
+              ringAsset: 'assets/images/Advantage.png',
+              pedestalAsset: 'assets/images/first.png',
+              place: 1,
               isWinner: true,
             ),
           ),
           Expanded(
             child: _PodiumPerson(
               entry: entries[2],
-              asset: 'assets/images/Deuce.png',
+              ringAsset: 'assets/images/Deuce.png',
+              pedestalAsset: 'assets/images/third.png',
+              place: 3,
             ),
           ),
         ],
@@ -2510,86 +2744,133 @@ class _RankingPodium extends StatelessWidget {
 class _PodiumPerson extends StatelessWidget {
   const _PodiumPerson({
     required this.entry,
-    required this.asset,
+    required this.ringAsset,
+    required this.pedestalAsset,
+    required this.place,
     this.isWinner = false,
   });
 
   final PostRankingEntry entry;
-  final String asset;
+  final String ringAsset;
+  final String pedestalAsset;
+  final int place;
   final bool isWinner;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            CupertinoButton(
+    final ringSize = isWinner ? 108.0 : 86.0;
+    final avatarSize = isWinner ? 46.0 : 38.0;
+    final pedestalWidth = isWinner ? 124.0 : 94.0;
+    final pedestalHeight = isWinner ? 140.0 : 106.0;
+    final slotHeight = isWinner ? 250.0 : 214.0;
+    final textColor = place == 1
+        ? const Color(0xFF8E6500)
+        : place == 2
+        ? const Color(0xFF667486)
+        : const Color(0xFF9B4F35);
+
+    return SizedBox(
+      height: slotHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
+        children: [
+          Positioned(
+            bottom: 0,
+            child: CupertinoButton(
               minimumSize: Size.zero,
               padding: EdgeInsets.zero,
               onPressed: () => _openRankingProfile(context, entry),
-              child: Image.asset(
-                asset,
-                width: isWinner ? 86 : 72,
-                height: isWinner ? 94 : 82,
-                fit: BoxFit.contain,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Image.asset(
+                    pedestalAsset,
+                    width: pedestalWidth,
+                    height: pedestalHeight,
+                    fit: BoxFit.fill,
+                  ),
+                  Positioned(
+                    top: isWinner ? 45 : 31,
+                    left: 4,
+                    right: 4,
+                    child: Column(
+                      children: [
+                        Text(
+                          entry.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _postText(context).copyWith(
+                            color: textColor,
+                            fontSize: isWinner ? 13 : 11,
+                            height: 1,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 11),
+                        Text(
+                          'Check-in days',
+                          style: _postText(context).copyWith(
+                            color: textColor.withValues(alpha: 0.76),
+                            fontSize: isWinner ? 10 : 8,
+                            height: 1,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          '${entry.checkInDays}',
+                          style: _postText(context).copyWith(
+                            color: textColor,
+                            fontSize: isWinner ? 18 : 15,
+                            height: 1,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            CupertinoButton(
+          ),
+          Positioned(
+            bottom: pedestalHeight - (isWinner ? 18 : 12),
+            child: CupertinoButton(
               minimumSize: Size.zero,
               padding: EdgeInsets.zero,
               onPressed: () => _openRankingProfile(context, entry),
-              child: _Avatar(
-                assetPath: entry.avatarAsset,
-                size: isWinner ? 42 : 34,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        CupertinoButton(
-          minimumSize: Size.zero,
-          padding: EdgeInsets.zero,
-          onPressed: () => _openRankingProfile(context, entry),
-          child: Text(
-            entry.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: _postText(context).copyWith(
-              color: CupertinoColors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          width: isWinner ? 78 : 62,
-          height: isWinner ? 74 : 54,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: isWinner
-                  ? const [Color(0xFFFFF060), Color(0xFFF0B400)]
-                  : const [Color(0xFFFFCDB8), Color(0xFFEFA06F)],
-            ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-          ),
-          child: Center(
-            child: Text(
-              '${entry.checkInDays}',
-              style: _postText(context).copyWith(
-                color: CupertinoColors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Image.asset(
+                    ringAsset,
+                    width: ringSize,
+                    height: ringSize,
+                    fit: BoxFit.contain,
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x55000000),
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: _Avatar(
+                      assetPath: entry.avatarAsset,
+                      size: avatarSize,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -2601,83 +2882,131 @@ class _RankingList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Container(
       decoration: BoxDecoration(
-        color: CupertinoColors.black.withValues(alpha: 0.32),
+        color: const Color(0xFF10131C).withValues(alpha: 0.78),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: CupertinoColors.white.withValues(alpha: 0.06),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 24,
+            offset: Offset(0, 16),
+          ),
+        ],
       ),
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-        physics: const BouncingScrollPhysics(),
-        itemCount: entries.length,
-        separatorBuilder: (context, index) {
-          return SizedBox(
-            height: 18,
-            child: Center(
-              child: ColoredBox(
-                color: CupertinoColors.white.withValues(alpha: 0.08),
-                child: const SizedBox(height: 1, width: double.infinity),
-              ),
-            ),
-          );
-        },
-        itemBuilder: (context, index) {
-          final entry = entries[index];
-
-          return Row(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      child: Column(
+        children: [
+          Row(
             children: [
               SizedBox(
-                width: 34,
-                child: Text(
-                  entry.rank.toString().padLeft(2, '0'),
-                  style: _postText(context).copyWith(
-                    color: CupertinoColors.white.withValues(alpha: 0.48),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+                width: 64,
+                child: Text('Ranking', style: _rankingHeaderText(context)),
               ),
-              CupertinoButton(
-                minimumSize: Size.zero,
-                padding: EdgeInsets.zero,
-                onPressed: () => _openRankingProfile(context, entry),
-                child: _Avatar(assetPath: entry.avatarAsset, size: 30),
-              ),
-              const SizedBox(width: 10),
               Expanded(
-                child: CupertinoButton(
-                  minimumSize: Size.zero,
-                  padding: EdgeInsets.zero,
-                  onPressed: () => _openRankingProfile(context, entry),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      entry.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _postText(context).copyWith(
-                        color: CupertinoColors.white.withValues(alpha: 0.64),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
+                child: Text('Nickname', style: _rankingHeaderText(context)),
               ),
-              Text(
-                '${entry.checkInDays}',
-                style: _postText(context).copyWith(
-                  color: CupertinoColors.white.withValues(alpha: 0.52),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
+              SizedBox(
+                width: 92,
+                child: Text(
+                  'Check-in days',
+                  textAlign: TextAlign.right,
+                  style: _rankingHeaderText(context),
                 ),
               ),
             ],
-          );
-        },
+          ),
+          const SizedBox(height: 12),
+          for (var index = 0; index < entries.length; index++) ...[
+            _RankingListRow(entry: entries[index]),
+            if (index != entries.length - 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: ColoredBox(
+                  color: CupertinoColors.white.withValues(alpha: 0.07),
+                  child: const SizedBox(height: 1, width: double.infinity),
+                ),
+              ),
+          ],
+        ],
       ),
     );
   }
+}
+
+class _RankingListRow extends StatelessWidget {
+  const _RankingListRow({required this.entry});
+
+  final PostRankingEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      onPressed: () => _openRankingProfile(context, entry),
+      child: SizedBox(
+        height: 42,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 54,
+              child: Text(
+                entry.rank.toString().padLeft(2, '0'),
+                style: _postText(context).copyWith(
+                  color: CupertinoColors.white.withValues(alpha: 0.48),
+                  fontSize: 16,
+                  height: 1,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            _Avatar(assetPath: entry.avatarAsset, size: 34),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                entry.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _postText(context).copyWith(
+                  color: CupertinoColors.white.withValues(alpha: 0.62),
+                  fontSize: 15,
+                  height: 1,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 58,
+              child: Text(
+                '${entry.checkInDays}',
+                textAlign: TextAlign.right,
+                style: _postText(context).copyWith(
+                  color: CupertinoColors.white.withValues(alpha: 0.58),
+                  fontSize: 15,
+                  height: 1,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+TextStyle _rankingHeaderText(BuildContext context) {
+  return _postText(context).copyWith(
+    color: CupertinoColors.white.withValues(alpha: 0.62),
+    fontSize: 12,
+    height: 1,
+    fontWeight: FontWeight.w700,
+  );
 }
 
 void _openRankingProfile(BuildContext context, PostRankingEntry entry) {
