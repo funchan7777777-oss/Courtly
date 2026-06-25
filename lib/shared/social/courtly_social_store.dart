@@ -220,6 +220,14 @@ class CourtlySocialStore {
       ..sort();
   }
 
+  Future<List<String>> outgoingFollowUserIds() async {
+    final ids = {
+      ...await _loadStringSet(_followingKey),
+      ...await _loadStringSet(_followRequestsKey),
+    }.toList(growable: false);
+    return ids..sort();
+  }
+
   Future<List<CourtlyBlockedUser>> loadBlockedUsers() async {
     final preferences = await SharedPreferences.getInstance();
     final ids = preferences.getStringList(_blockedUsersKey) ?? <String>[];
