@@ -39,7 +39,7 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
   @override
   void initState() {
     super.initState();
-    CourtlySocialStore.relationshipVersion.addListener(
+    CourtlySocialStore.instance.relationshipVersion.addListener(
       _handleRelationshipChanged,
     );
     unawaited(_loadModerationState());
@@ -48,7 +48,7 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
 
   @override
   void dispose() {
-    CourtlySocialStore.relationshipVersion.removeListener(
+    CourtlySocialStore.instance.relationshipVersion.removeListener(
       _handleRelationshipChanged,
     );
     super.dispose();
@@ -973,7 +973,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
   @override
   void initState() {
     super.initState();
-    CourtlySocialStore.relationshipVersion.addListener(
+    CourtlySocialStore.instance.relationshipVersion.addListener(
       _handleRelationshipChanged,
     );
     unawaited(_syncRelationshipState());
@@ -981,7 +981,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
 
   @override
   void dispose() {
-    CourtlySocialStore.relationshipVersion.removeListener(
+    CourtlySocialStore.instance.relationshipVersion.removeListener(
       _handleRelationshipChanged,
     );
     _commentController.dispose();
@@ -1141,12 +1141,17 @@ class _PostDetailPageState extends State<PostDetailPage> {
       return;
     }
 
+    final commentId =
+        'local-post-comment-${DateTime.now().microsecondsSinceEpoch}';
+    final postAuthorId = _post.authorId;
+    final postAuthorName = _post.authorName;
+
     setState(() {
       _post = _post.copyWith(
         comments: [
           ..._post.comments,
           PostSharingComment(
-            id: 'local-post-comment-${DateTime.now().microsecondsSinceEpoch}',
+            id: commentId,
             authorId: 'you',
             authorName: 'You',
             createdAtLabel: 'now',
@@ -1157,6 +1162,19 @@ class _PostDetailPageState extends State<PostDetailPage> {
       );
       _commentController.clear();
     });
+    unawaited(
+      CourtlySocialStore.instance.addSystemMessage(
+        CourtlySystemMessage(
+          id: 'comment-$commentId',
+          kind: 'comment',
+          title: 'Comment posted',
+          body: 'Your reply was added to $postAuthorName\'s court moment.',
+          timeLabel: 'now',
+          userId: postAuthorId,
+          targetId: 'post-comment:$commentId',
+        ),
+      ),
+    );
   }
 
   void _openAuthorProfile() {
@@ -1846,7 +1864,7 @@ class _PostUserHomePageState extends State<PostUserHomePage> {
   @override
   void initState() {
     super.initState();
-    CourtlySocialStore.relationshipVersion.addListener(
+    CourtlySocialStore.instance.relationshipVersion.addListener(
       _handleRelationshipChanged,
     );
     unawaited(_syncRelationshipState());
@@ -1854,7 +1872,7 @@ class _PostUserHomePageState extends State<PostUserHomePage> {
 
   @override
   void dispose() {
-    CourtlySocialStore.relationshipVersion.removeListener(
+    CourtlySocialStore.instance.relationshipVersion.removeListener(
       _handleRelationshipChanged,
     );
     super.dispose();

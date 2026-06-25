@@ -1,5 +1,6 @@
 import 'package:courtly/features/first_rally/data/rally_asset_ledger.dart';
 import 'package:courtly/features/first_rally/domain/rally_entry_draft.dart';
+import 'package:courtly/shared/social/courtly_social_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RallyStoredSession {
@@ -133,12 +134,14 @@ class RallySessionVault {
     if (avatarPath != null && avatarPath.trim().isNotEmpty) {
       await preferences.setString(_avatarImagePathKey, avatarPath);
     }
+    await CourtlySocialStore.instance.ensureLoginFollowerBoost();
   }
 
   Future<void> reactivateLocalSession() async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setBool(_activeEntryKey, true);
     await preferences.setString(_entryMethodKey, 'local');
+    await CourtlySocialStore.instance.ensureLoginFollowerBoost();
   }
 
   Future<void> activateCredentialEntry(RallyCredentialDraft draft) async {
@@ -185,6 +188,7 @@ class RallySessionVault {
 
     await preferences.setBool(_activeEntryKey, true);
     await preferences.setString(_entryMethodKey, 'local');
+    await CourtlySocialStore.instance.ensureLoginFollowerBoost();
   }
 
   Future<void> activateAppleEntry({required String displayNameSignal}) async {

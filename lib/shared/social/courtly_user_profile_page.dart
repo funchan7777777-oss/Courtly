@@ -36,7 +36,7 @@ class _CourtlyUserProfilePageState extends State<CourtlyUserProfilePage> {
   @override
   void initState() {
     super.initState();
-    CourtlySocialStore.relationshipVersion.addListener(
+    CourtlySocialStore.instance.relationshipVersion.addListener(
       _handleRelationshipChanged,
     );
     unawaited(_loadRelationship());
@@ -44,7 +44,7 @@ class _CourtlyUserProfilePageState extends State<CourtlyUserProfilePage> {
 
   @override
   void dispose() {
-    CourtlySocialStore.relationshipVersion.removeListener(
+    CourtlySocialStore.instance.relationshipVersion.removeListener(
       _handleRelationshipChanged,
     );
     super.dispose();

@@ -110,16 +110,39 @@ class _ClubChatsViewState extends State<ClubChatsView> {
   List<ClubConversation> _conversations = List<ClubConversation>.of(
     ClubChatSeed.openingConversations,
   );
+  List<CourtlySystemMessage> _systemMessages = const [];
+  List<CourtlyUserProfile> _mutualFriends = const [];
   Set<String> _blockedUserIds = {};
+  Set<String> _reportedContentIds = {};
 
   @override
   void initState() {
     super.initState();
+    CourtlySocialStore.instance.relationshipVersion.addListener(
+      _handleStoreChanged,
+    );
+    CourtlySocialStore.instance.messageCenterVersion.addListener(
+      _handleStoreChanged,
+    );
     unawaited(_loadLocalState());
   }
 
   @override
+  void dispose() {
+    CourtlySocialStore.instance.relationshipVersion.removeListener(
+      _handleStoreChanged,
+    );
+    CourtlySocialStore.instance.messageCenterVersion.removeListener(
+      _handleStoreChanged,
+    );
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final visibleMessagesCount =
+        _visibleSystemMessages.length + _visibleConversations.length;
+
     return CupertinoPageScaffold(
       child: _ClubChatBackdrop(
         child: CustomScrollView(
@@ -134,40 +157,48 @@ class _ClubChatsViewState extends State<ClubChatsView> {
                   0,
                 ),
                 child: _ClubChatsTopBar(
-                  requestCount: _requests.length,
-                  onOpenRequests: _openRequests,
+                  mutualCount: _mutualFriends.length,
+                  onOpenMutuals: _openMutualFriends,
                 ),
               ),
             ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(22, 20, 22, 0),
-                child: _ClubSectionHeader(
-                  artAsset: 'assets/images/Breakpoint.png',
-                  artWidth: 168,
-                  artHeight: 26,
-                  trailing: 'More',
-                  onTrailingPressed: _openRequests,
+                child: _ClubTextSectionHeader(
+                  title: 'Mutual follows',
+                  detail: '${_mutualFriends.length} friends',
+                  actionLabel: 'View all',
+                  onAction: _openMutualFriends,
                 ),
               ),
             ),
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 164,
-                child: _requests.isEmpty
-                    ? const _EmptyRequestStrip()
+                height: 150,
+                child: _mutualFriends.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.fromLTRB(22, 12, 22, 0),
+                        child: _InlineInfoCard(
+                          icon: CupertinoIcons.person_2_fill,
+                          title: 'No mutual follows yet',
+                          body:
+                              'Follow each other to unlock private chat and calls.',
+                        ),
+                      )
                     : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(22, 12, 22, 8),
                         scrollDirection: Axis.horizontal,
                         physics: const BouncingScrollPhysics(),
-                        itemCount: _requests.length,
+                        itemCount: _mutualFriends.length,
                         itemBuilder: (context, index) {
-                          final request = _requests[index];
+                          final profile = _mutualFriends[index];
 
-                          return _FriendRequestCard(
-                            request: request,
-                            onPressed: () => _openRequestDetail(request),
-                            onFollow: () => _toggleRequestFollow(request.id),
+                          return _MutualFriendCard(
+                            profile: profile,
+                            onPressed: () => _openProfile(profile),
+                            onMessage: () =>
+                                unawaited(_openChatForProfile(profile)),
                           );
                         },
                         separatorBuilder: (context, index) =>
@@ -178,51 +209,51 @@ class _ClubChatsViewState extends State<ClubChatsView> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(22, 6, 22, 12),
-                child: _ClubSectionHeader(
-                  artAsset: 'assets/images/Sparring.png',
-                  artWidth: 116,
-                  artHeight: 28,
-                  trailing: '${_visibleConversations.length} chats',
+                child: _ClubTextSectionHeader(
+                  title: 'Messages',
+                  detail: '$visibleMessagesCount items',
+                  actionLabel: visibleMessagesCount == 0 ? null : 'Clear all',
+                  onAction: visibleMessagesCount == 0
+                      ? null
+                      : () => unawaited(_clearAllMessages()),
                 ),
               ),
             ),
-            if (_visibleConversations.isEmpty)
+            if (visibleMessagesCount == 0)
               const SliverFillRemaining(
                 hasScrollBody: false,
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(22, 0, 22, 124),
-                  child: _EmptyConversationPanel(),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: _InlineInfoCard(
+                      icon: CupertinoIcons.chat_bubble_2_fill,
+                      title: 'No messages yet',
+                      body:
+                          'System updates and chat history will stay here after they happen.',
+                    ),
+                  ),
                 ),
               )
             else
               SliverList.separated(
-                itemCount: _visibleConversations.length,
+                itemCount: visibleMessagesCount,
                 itemBuilder: (context, index) {
-                  final conversation = _visibleConversations[index];
+                  final systemMessages = _visibleSystemMessages;
 
                   return Padding(
                     padding: EdgeInsets.fromLTRB(
                       22,
                       0,
                       22,
-                      index == _visibleConversations.length - 1 ? 122 : 0,
+                      index == visibleMessagesCount - 1 ? 122 : 0,
                     ),
-                    child: Dismissible(
-                      key: ValueKey(conversation.id),
-                      direction: DismissDirection.endToStart,
-                      background: const _DeleteSwipeBackground(),
-                      confirmDismiss: (_) =>
-                          _confirmDeleteConversation(conversation),
-                      onDismissed: (_) => _deleteConversation(conversation.id),
-                      child: _ConversationTile(
-                        conversation: conversation,
-                        onPressed: () => unawaited(_openChat(conversation)),
-                        onOpenProfile: () =>
-                            _openConversationProfile(conversation),
-                        onLongPress: () =>
-                            unawaited(_askDeleteConversation(conversation)),
-                      ),
-                    ),
+                    child: index < systemMessages.length
+                        ? _buildSystemMessageRow(systemMessages[index])
+                        : _buildConversationRow(
+                            _visibleConversations[index -
+                                systemMessages.length],
+                          ),
                   );
                 },
                 separatorBuilder: (context, index) =>
@@ -236,13 +267,74 @@ class _ClubChatsViewState extends State<ClubChatsView> {
 
   List<ClubConversation> get _visibleConversations {
     return _conversations
-        .where((conversation) => !_blockedUserIds.contains(conversation.userId))
+        .where(
+          (conversation) =>
+              !_blockedUserIds.contains(conversation.userId) &&
+              !_reportedContentIds.contains('chat:${conversation.userId}'),
+        )
         .toList(growable: false);
+  }
+
+  List<CourtlySystemMessage> get _visibleSystemMessages {
+    return _systemMessages
+        .where((message) {
+          final userId = message.userId;
+          final targetId = message.targetId;
+          if (userId != null &&
+              _blockedUserIds.contains(userId) &&
+              message.kind != 'block') {
+            return false;
+          }
+          if (targetId != null && _reportedContentIds.contains(targetId)) {
+            return false;
+          }
+          return true;
+        })
+        .toList(growable: false);
+  }
+
+  Widget _buildSystemMessageRow(CourtlySystemMessage message) {
+    final opensProfile =
+        message.userId != null &&
+        message.kind != 'report' &&
+        message.kind != 'block';
+
+    return Dismissible(
+      key: ValueKey('system-${message.id}'),
+      direction: DismissDirection.endToStart,
+      background: const _DeleteSwipeBackground(),
+      onDismissed: (_) => unawaited(_deleteSystemMessage(message.id)),
+      child: _SystemMessageTile(
+        message: message,
+        onPressed: opensProfile
+            ? () => _openProfile(CourtlyUserDirectory.byId(message.userId!))
+            : null,
+      ),
+    );
+  }
+
+  Widget _buildConversationRow(ClubConversation conversation) {
+    return Dismissible(
+      key: ValueKey('conversation-${conversation.id}'),
+      direction: DismissDirection.endToStart,
+      background: const _DeleteSwipeBackground(),
+      onDismissed: (_) => unawaited(_deleteConversation(conversation.id)),
+      child: _ConversationTile(
+        conversation: conversation,
+        onPressed: () => unawaited(_openChat(conversation)),
+        onOpenProfile: () => _openConversationProfile(conversation),
+        onLongPress: () => unawaited(_askDeleteConversation(conversation)),
+      ),
+    );
   }
 
   Future<void> _loadLocalState() async {
     final store = CourtlySocialStore.instance;
+    await store.ensureClubMessagesSeeded();
     final blocked = await store.blockedUserIds();
+    final reported = await store.reportedContentIds();
+    final systemMessages = await store.loadSystemMessages();
+    final mutualIds = await store.mutualFollowUserIds();
     final messageUserIds = await store.messageUserIds();
     final conversations = <ClubConversation>[];
 
@@ -270,17 +362,33 @@ class _ClubChatsViewState extends State<ClubChatsView> {
         ),
       );
     }
+    conversations.sort((left, right) {
+      return right.lastTimeLabel.compareTo(left.lastTimeLabel);
+    });
 
     if (!mounted) {
       return;
     }
     setState(() {
       _blockedUserIds = blocked;
+      _reportedContentIds = reported;
+      _systemMessages = systemMessages;
+      _mutualFriends = mutualIds
+          .where((userId) => !blocked.contains(userId))
+          .map(CourtlyUserDirectory.byId)
+          .toList(growable: false);
       _conversations = conversations;
       _requests = _requests
           .where((request) => !blocked.contains(request.userId))
           .toList();
     });
+  }
+
+  void _handleStoreChanged() {
+    if (!mounted) {
+      return;
+    }
+    unawaited(_loadLocalState());
   }
 
   void _toggleRequestFollow(String requestId) {
@@ -310,6 +418,44 @@ class _ClubChatsViewState extends State<ClubChatsView> {
     }
 
     setState(() => _requests = nextRequests);
+  }
+
+  Future<void> _openMutualFriends() async {
+    await Navigator.of(context).push<void>(
+      CupertinoPageRoute<void>(
+        builder: (_) => ClubMutualFriendsPage(profiles: _mutualFriends),
+      ),
+    );
+    if (mounted) {
+      unawaited(_loadLocalState());
+    }
+  }
+
+  void _openProfile(CourtlyUserProfile profile) {
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (_) => CourtlyUserProfilePage(
+          profile: profile,
+          videos: _clubProfileVideosFor(profile.id),
+          posts: _clubProfilePostsFor(profile.id),
+          onOpenChat: (profile) {
+            unawaited(openClubChatForProfile(context, profile));
+          },
+          onModerated: (result) {
+            if (result.action == CourtlyModerationAction.block) {
+              unawaited(_loadLocalState());
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openChatForProfile(CourtlyUserProfile profile) async {
+    await openClubChatForProfile(context, profile);
+    if (mounted) {
+      await _loadLocalState();
+    }
   }
 
   void _openRequestDetail(ClubFriendRequest request) {
@@ -382,7 +528,7 @@ class _ClubChatsViewState extends State<ClubChatsView> {
       return;
     }
 
-    _deleteConversation(conversation.id);
+    await _deleteConversation(conversation.id);
   }
 
   Future<bool> _confirmDeleteConversation(ClubConversation conversation) async {
@@ -412,11 +558,65 @@ class _ClubChatsViewState extends State<ClubChatsView> {
     return confirmed ?? false;
   }
 
-  void _deleteConversation(String conversationId) {
+  Future<void> _deleteConversation(String conversationId) async {
+    final conversationIndex = _conversations.indexWhere(
+      (entry) => entry.id == conversationId,
+    );
+    if (conversationIndex == -1) {
+      return;
+    }
+    final conversation = _conversations[conversationIndex];
     setState(() {
       _conversations = _conversations
           .where((conversation) => conversation.id != conversationId)
           .toList();
+    });
+    await CourtlySocialStore.instance.deleteMessages(conversation.userId);
+  }
+
+  Future<void> _deleteSystemMessage(String messageId) async {
+    setState(() {
+      _systemMessages = _systemMessages
+          .where((message) => message.id != messageId)
+          .toList(growable: false);
+    });
+    await CourtlySocialStore.instance.deleteSystemMessage(messageId);
+  }
+
+  Future<void> _clearAllMessages() async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) {
+        return CupertinoAlertDialog(
+          title: const Text('Clear all messages?'),
+          content: const Text(
+            'This removes chat history and system notifications from this device.',
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Clear'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) {
+      return;
+    }
+
+    await CourtlySocialStore.instance.clearAllMessages();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _systemMessages = const [];
+      _conversations = const [];
     });
   }
 }
@@ -447,12 +647,12 @@ class _ClubChatBackdrop extends StatelessWidget {
 
 class _ClubChatsTopBar extends StatelessWidget {
   const _ClubChatsTopBar({
-    required this.requestCount,
-    required this.onOpenRequests,
+    required this.mutualCount,
+    required this.onOpenMutuals,
   });
 
-  final int requestCount;
-  final VoidCallback onOpenRequests;
+  final int mutualCount;
+  final VoidCallback onOpenMutuals;
 
   @override
   Widget build(BuildContext context) {
@@ -469,7 +669,7 @@ class _ClubChatsTopBar extends StatelessWidget {
         CupertinoButton(
           minimumSize: Size.zero,
           padding: EdgeInsets.zero,
-          onPressed: onOpenRequests,
+          onPressed: onOpenMutuals,
           child: Container(
             height: 34,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -487,7 +687,7 @@ class _ClubChatsTopBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '$requestCount',
+                  '$mutualCount',
                   style: _clubTextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -497,6 +697,71 @@ class _ClubChatsTopBar extends StatelessWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _ClubTextSectionHeader extends StatelessWidget {
+  const _ClubTextSectionHeader({
+    required this.title,
+    required this.detail,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final String title;
+  final String detail;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final actionLabel = this.actionLabel;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: _clubTextStyle(
+                fontSize: 24,
+                height: 1,
+                fontWeight: FontWeight.w900,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              detail,
+              style: _clubTextStyle(
+                color: _chatWhite.withValues(alpha: 0.48),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const Spacer(),
+        if (actionLabel != null)
+          CupertinoButton(
+            minimumSize: Size.zero,
+            padding: EdgeInsets.zero,
+            onPressed: onAction,
+            child: Text(
+              actionLabel,
+              style: _clubTextStyle(
+                color: actionLabel == 'Clear all'
+                    ? _chatPinkSoft
+                    : _chatWhite.withValues(alpha: 0.58),
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -623,6 +888,247 @@ class _FriendRequestCard extends StatelessWidget {
                 compact: true,
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MutualFriendCard extends StatelessWidget {
+  const _MutualFriendCard({
+    required this.profile,
+    required this.onPressed,
+    required this.onMessage,
+  });
+
+  final CourtlyUserProfile profile;
+  final VoidCallback onPressed;
+  final VoidCallback onMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      child: Container(
+        width: 132,
+        decoration: BoxDecoration(
+          color: _chatPanel.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _chatWhite.withValues(alpha: 0.08)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 12,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+        child: Column(
+          children: [
+            _ClubAvatar(assetPath: profile.avatarAsset, size: 54),
+            const SizedBox(height: 8),
+            Text(
+              profile.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _clubTextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Mutual follow',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _clubTextStyle(
+                color: _chatWhite.withValues(alpha: 0.56),
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const Spacer(),
+            CupertinoButton(
+              minimumSize: Size.zero,
+              padding: EdgeInsets.zero,
+              onPressed: onMessage,
+              child: Container(
+                height: 26,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: _chatPink,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      CupertinoIcons.chat_bubble_fill,
+                      color: _chatWhite,
+                      size: 12,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      'Chat',
+                      style: _clubTextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SystemMessageTile extends StatelessWidget {
+  const _SystemMessageTile({required this.message, this.onPressed});
+
+  final CourtlySystemMessage message;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = message.userId == null
+        ? null
+        : CourtlyUserDirectory.byId(message.userId!);
+
+    return CupertinoButton(
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 76),
+        decoration: BoxDecoration(
+          color: _chatPanel.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _chatWhite.withValues(alpha: 0.07)),
+        ),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Row(
+          children: [
+            _SystemMessageIcon(message: message, profile: profile),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          message.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _clubTextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _SystemKindPill(kind: message.kind),
+                    ],
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    message.body,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: _clubTextStyle(
+                      color: _chatWhite.withValues(alpha: 0.74),
+                      fontSize: 12,
+                      height: 1.25,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  message.timeLabel,
+                  style: _clubTextStyle(
+                    color: _chatWhite.withValues(alpha: 0.38),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Icon(
+                  CupertinoIcons.chevron_left,
+                  color: _chatWhite.withValues(alpha: 0.22),
+                  size: 14,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SystemMessageIcon extends StatelessWidget {
+  const _SystemMessageIcon({required this.message, required this.profile});
+
+  final CourtlySystemMessage message;
+  final CourtlyUserProfile? profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = this.profile;
+    if (profile != null &&
+        message.kind != 'report' &&
+        message.kind != 'block') {
+      return _ClubAvatar(assetPath: profile.avatarAsset, size: 52);
+    }
+
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: _chatWhite.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+        border: Border.all(color: _chatWhite.withValues(alpha: 0.14)),
+      ),
+      child: Icon(_systemIcon(message.kind), color: _chatPinkSoft, size: 23),
+    );
+  }
+}
+
+class _SystemKindPill extends StatelessWidget {
+  const _SystemKindPill({required this.kind});
+
+  final String kind;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 20,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: _chatWhite.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Center(
+        child: Text(
+          _systemKindLabel(kind),
+          style: _clubTextStyle(
+            color: _chatWhite.withValues(alpha: 0.78),
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ),
@@ -907,26 +1413,73 @@ class _ClubChatThreadPageState extends State<ClubChatThreadPage> {
       return;
     }
 
-    final confirmed = await showCupertinoDialog<bool>(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) {
-        return _CallCostDialog(
-          onCancel: () => Navigator.of(context).pop(false),
-          onConfirm: () => Navigator.of(context).pop(true),
-        );
-      },
-    );
-
-    if (confirmed != true || !mounted) {
+    final cameraController = await _prepareCallCamera();
+    if (cameraController == null || !mounted) {
+      await cameraController?.dispose();
       return;
     }
 
     await Navigator.of(context).push<ClubCallResult>(
       CupertinoPageRoute<ClubCallResult>(
-        builder: (_) => ClubVideoCallPage(conversation: _conversation),
+        builder: (_) => ClubVideoCallPage(
+          conversation: _conversation,
+          cameraController: cameraController,
+        ),
       ),
     );
+  }
+
+  Future<CameraController?> _prepareCallCamera() async {
+    final cameraStatus = await Permission.camera.request();
+    final microphoneStatus = await Permission.microphone.request();
+    if (!cameraStatus.isGranted || !microphoneStatus.isGranted) {
+      if (mounted) {
+        await showCourtlyAccessDialog(
+          context: context,
+          title: 'Camera and microphone required',
+          message:
+              'Allow camera and microphone access to preview yourself before the call starts.',
+        );
+      }
+      return null;
+    }
+
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        if (mounted) {
+          await showCourtlyAccessDialog(
+            context: context,
+            title: 'Camera unavailable',
+            message:
+                'No camera was found on this device. Please check the simulator or device settings.',
+          );
+        }
+        return null;
+      }
+
+      final frontCamera = cameras.firstWhere(
+        (camera) => camera.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
+      final controller = CameraController(
+        frontCamera,
+        ResolutionPreset.medium,
+        enableAudio: true,
+      );
+      await controller.initialize();
+      return controller;
+    } catch (_) {
+      if (mounted) {
+        await showCourtlyAccessDialog(
+          context: context,
+          title: 'Preview failed',
+          message:
+              'Courtly could not start the camera preview. Check permission settings and try again.',
+        );
+      }
+      return null;
+    }
   }
 
   Future<bool> _ensureMutualAccess(String title) async {
@@ -1245,9 +1798,14 @@ class _MessageComposer extends StatelessWidget {
 }
 
 class ClubVideoCallPage extends StatefulWidget {
-  const ClubVideoCallPage({required this.conversation, super.key});
+  const ClubVideoCallPage({
+    required this.conversation,
+    required this.cameraController,
+    super.key,
+  });
 
   final ClubConversation conversation;
+  final CameraController cameraController;
 
   @override
   State<ClubVideoCallPage> createState() => _ClubVideoCallPageState();
@@ -1257,19 +1815,11 @@ class _ClubVideoCallPageState extends State<ClubVideoCallPage> {
   bool _speakerOn = true;
   bool _muted = false;
   bool _cameraOn = true;
-  CameraController? _cameraController;
-  bool _cameraReady = false;
-  bool _permissionDenied = false;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_prepareCamera());
-  }
+  late CameraController _cameraController = widget.cameraController;
 
   @override
   void dispose() {
-    _cameraController?.dispose();
+    _cameraController.dispose();
     super.dispose();
   }
 
@@ -1315,10 +1865,14 @@ class _ClubVideoCallPageState extends State<ClubVideoCallPage> {
             top: courtlySafeTop(context, 84),
             child: _VideoPreview(
               controller: _cameraController,
-              cameraReady: _cameraReady,
               cameraOn: _cameraOn,
-              permissionDenied: _permissionDenied,
             ),
+          ),
+          Positioned(
+            left: 32,
+            right: 32,
+            top: courtlySafeTop(context, 254),
+            child: _RemoteCallStatus(conversation: conversation),
           ),
           Positioned(
             left: 24,
@@ -1330,7 +1884,7 @@ class _ClubVideoCallPageState extends State<ClubVideoCallPage> {
               cameraOn: _cameraOn,
               onSpeaker: () => setState(() => _speakerOn = !_speakerOn),
               onMute: () => setState(() => _muted = !_muted),
-              onCamera: () => setState(() => _cameraOn = !_cameraOn),
+              onCamera: () => unawaited(_toggleCamera()),
               onEnd: () => Navigator.of(
                 context,
               ).pop(const ClubCallResult(started: true)),
@@ -1341,43 +1895,20 @@ class _ClubVideoCallPageState extends State<ClubVideoCallPage> {
     );
   }
 
-  Future<void> _prepareCamera() async {
-    final cameraStatus = await Permission.camera.request();
-    final microphoneStatus = await Permission.microphone.request();
-    if (!cameraStatus.isGranted || !microphoneStatus.isGranted) {
-      if (mounted) {
-        setState(() => _permissionDenied = true);
+  Future<void> _toggleCamera() async {
+    final cameraOn = !_cameraOn;
+    setState(() => _cameraOn = cameraOn);
+
+    try {
+      if (cameraOn) {
+        await _cameraController.resumePreview();
+      } else {
+        await _cameraController.pausePreview();
       }
-      return;
+    } catch (_) {
+      // The fake call can keep the visible toggle state even if preview pause
+      // is already in the requested state on a simulator or device.
     }
-
-    final cameras = await availableCameras();
-    if (cameras.isEmpty) {
-      if (mounted) {
-        setState(() => _permissionDenied = true);
-      }
-      return;
-    }
-
-    final frontCamera = cameras.firstWhere(
-      (camera) => camera.lensDirection == CameraLensDirection.front,
-      orElse: () => cameras.first,
-    );
-    final controller = CameraController(
-      frontCamera,
-      ResolutionPreset.medium,
-      enableAudio: true,
-    );
-    await controller.initialize();
-    if (!mounted) {
-      await controller.dispose();
-      return;
-    }
-
-    setState(() {
-      _cameraController = controller;
-      _cameraReady = true;
-    });
   }
 }
 
@@ -1432,18 +1963,16 @@ class _VideoCallHeader extends StatelessWidget {
 class _VideoPreview extends StatelessWidget {
   const _VideoPreview({
     required this.controller,
-    required this.cameraReady,
     required this.cameraOn,
-    required this.permissionDenied,
   });
 
-  final CameraController? controller;
-  final bool cameraReady;
+  final CameraController controller;
   final bool cameraOn;
-  final bool permissionDenied;
 
   @override
   Widget build(BuildContext context) {
+    final cameraReady = controller.value.isInitialized;
+
     return Container(
       width: 102,
       height: 142,
@@ -1460,21 +1989,80 @@ class _VideoPreview extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: cameraReady && cameraOn && controller != null
-            ? CameraPreview(controller!)
+        child: cameraReady && cameraOn
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  CameraPreview(controller),
+                  Positioned(
+                    left: 8,
+                    bottom: 8,
+                    child: Container(
+                      height: 20,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: CupertinoColors.black.withValues(alpha: 0.44),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'You',
+                          style: _clubTextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              )
             : DecoratedBox(
                 decoration: const BoxDecoration(color: Color(0xFF1A004D)),
                 child: Center(
                   child: Icon(
-                    permissionDenied
-                        ? CupertinoIcons.lock_fill
-                        : CupertinoIcons.video_camera,
+                    CupertinoIcons.video_camera,
                     color: _chatPinkSoft,
                     size: 28,
                   ),
                 ),
               ),
       ),
+    );
+  }
+}
+
+class _RemoteCallStatus extends StatelessWidget {
+  const _RemoteCallStatus({required this.conversation});
+
+  final ClubConversation conversation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _ClubAvatar(
+          assetPath: conversation.avatarAsset,
+          size: 104,
+          showGlow: true,
+        ),
+        const SizedBox(height: 18),
+        Text(
+          'Calling ${conversation.playerName.split(' ').first}',
+          textAlign: TextAlign.center,
+          style: _clubTextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Waiting for answer...',
+          textAlign: TextAlign.center,
+          style: _clubTextStyle(
+            color: _chatWhite.withValues(alpha: 0.72),
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1677,6 +2265,188 @@ class _ClubFriendRequestsPageState extends State<ClubFriendRequestsPage> {
 
   void _close() {
     Navigator.of(context).pop(_requests);
+  }
+}
+
+class ClubMutualFriendsPage extends StatelessWidget {
+  const ClubMutualFriendsPage({required this.profiles, super.key});
+
+  final List<CourtlyUserProfile> profiles;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoPageScaffold(
+      child: _ClubChatBackdrop(
+        child: Column(
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                14,
+                courtlySafeTop(context, 10),
+                14,
+                0,
+              ),
+              child: SizedBox(
+                height: 42,
+                child: Row(
+                  children: [
+                    _HeaderIconButton(
+                      icon: CupertinoIcons.chevron_left,
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    Expanded(
+                      child: Text(
+                        'Mutual follows',
+                        textAlign: TextAlign.center,
+                        style: _clubTextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 42),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: profiles.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.fromLTRB(22, 28, 22, 0),
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: _InlineInfoCard(
+                          icon: CupertinoIcons.person_2,
+                          title: 'No mutual follows yet',
+                          body:
+                              'When both players follow each other, they appear here.',
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(22, 18, 22, 32),
+                      itemCount: profiles.length,
+                      itemBuilder: (context, index) {
+                        final profile = profiles[index];
+
+                        return _MutualFriendRow(
+                          profile: profile,
+                          onOpenProfile: () => Navigator.of(context).push(
+                            CupertinoPageRoute<void>(
+                              builder: (_) => CourtlyUserProfilePage(
+                                profile: profile,
+                                videos: _clubProfileVideosFor(profile.id),
+                                posts: _clubProfilePostsFor(profile.id),
+                                onOpenChat: (profile) {
+                                  unawaited(
+                                    openClubChatForProfile(context, profile),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          onOpenChat: () => unawaited(
+                            openClubChatForProfile(context, profile),
+                          ),
+                        );
+                      },
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 13),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MutualFriendRow extends StatelessWidget {
+  const _MutualFriendRow({
+    required this.profile,
+    required this.onOpenProfile,
+    required this.onOpenChat,
+  });
+
+  final CourtlyUserProfile profile;
+  final VoidCallback onOpenProfile;
+  final VoidCallback onOpenChat;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 76,
+      decoration: BoxDecoration(
+        color: _chatPanel.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _chatWhite.withValues(alpha: 0.08)),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Row(
+        children: [
+          CupertinoButton(
+            minimumSize: Size.zero,
+            padding: EdgeInsets.zero,
+            onPressed: onOpenProfile,
+            child: _ClubAvatar(assetPath: profile.avatarAsset, size: 54),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: CupertinoButton(
+              minimumSize: Size.zero,
+              padding: EdgeInsets.zero,
+              onPressed: onOpenProfile,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    profile.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _clubTextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    'Private chat and video calls are unlocked',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _clubTextStyle(
+                      color: _chatWhite.withValues(alpha: 0.62),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          CupertinoButton(
+            minimumSize: Size.zero,
+            padding: EdgeInsets.zero,
+            onPressed: onOpenChat,
+            child: Container(
+              width: 44,
+              height: 34,
+              decoration: BoxDecoration(
+                color: _chatPink,
+                borderRadius: BorderRadius.circular(17),
+              ),
+              child: const Icon(
+                CupertinoIcons.chat_bubble_fill,
+                color: _chatWhite,
+                size: 18,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -2126,6 +2896,69 @@ class _EmptyConversationPanel extends StatelessWidget {
   }
 }
 
+class _InlineInfoCard extends StatelessWidget {
+  const _InlineInfoCard({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      decoration: BoxDecoration(
+        color: _chatPanel.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _chatWhite.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: _chatWhite.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: _chatPinkSoft, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: _clubTextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  body,
+                  style: _clubTextStyle(
+                    color: _chatWhite.withValues(alpha: 0.62),
+                    fontSize: 12,
+                    height: 1.28,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 TextStyle _clubTextStyle({
   Color color = _chatWhite,
   double fontSize = 14,
@@ -2142,4 +2975,26 @@ TextStyle _clubTextStyle({
     letterSpacing: 0,
     decoration: TextDecoration.none,
   );
+}
+
+IconData _systemIcon(String kind) {
+  return switch (kind) {
+    'mutual' => CupertinoIcons.person_2_fill,
+    'follow' => CupertinoIcons.person_badge_plus,
+    'comment' => CupertinoIcons.chat_bubble_text_fill,
+    'report' => CupertinoIcons.shield_lefthalf_fill,
+    'block' => CupertinoIcons.hand_raised_fill,
+    _ => CupertinoIcons.bell_fill,
+  };
+}
+
+String _systemKindLabel(String kind) {
+  return switch (kind) {
+    'mutual' => 'MUTUAL',
+    'follow' => 'FOLLOW',
+    'comment' => 'COMMENT',
+    'report' => 'REPORT',
+    'block' => 'BLOCK',
+    _ => 'SYSTEM',
+  };
 }

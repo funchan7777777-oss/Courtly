@@ -5,6 +5,7 @@ import 'package:courtly/features/first_rally/data/rally_session_vault.dart';
 import 'package:courtly/features/first_rally/presentation/pages/rally_welcome_choice_page.dart';
 import 'package:courtly/features/first_rally/presentation/widgets/rally_backdrop_layer.dart';
 import 'package:courtly/features/first_rally/presentation/widgets/rally_loading_layers.dart';
+import 'package:courtly/shared/social/courtly_social_store.dart';
 import 'package:flutter/cupertino.dart';
 
 class FirstRallyGate extends StatefulWidget {
@@ -31,6 +32,10 @@ class _FirstRallyGateState extends State<FirstRallyGate> {
 
     if (!mounted) {
       return;
+    }
+
+    if (activeSession != null) {
+      unawaited(CourtlySocialStore.instance.ensureLoginFollowerBoost());
     }
 
     final Widget nextPage = activeSession != null

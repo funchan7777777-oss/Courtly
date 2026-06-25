@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:math';
 
+import 'package:courtly/shared/social/courtly_user_directory.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -39,11 +41,126 @@ class CourtlyStoredMessage {
   }
 }
 
+class CourtlySystemMessage {
+  const CourtlySystemMessage({
+    required this.id,
+    required this.kind,
+    required this.title,
+    required this.body,
+    required this.timeLabel,
+    this.userId,
+    this.targetId,
+  });
+
+  final String id;
+  final String kind;
+  final String title;
+  final String body;
+  final String timeLabel;
+  final String? userId;
+  final String? targetId;
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'kind': kind,
+      'title': title,
+      'body': body,
+      'timeLabel': timeLabel,
+      'userId': userId,
+      'targetId': targetId,
+    };
+  }
+
+  static CourtlySystemMessage fromJson(Map<String, Object?> json) {
+    return CourtlySystemMessage(
+      id: json['id'] as String? ?? '',
+      kind: json['kind'] as String? ?? 'system',
+      title: json['title'] as String? ?? '',
+      body: json['body'] as String? ?? '',
+      timeLabel: json['timeLabel'] as String? ?? '',
+      userId: json['userId'] as String?,
+      targetId: json['targetId'] as String?,
+    );
+  }
+}
+
+class CourtlyPublishedPost {
+  const CourtlyPublishedPost({
+    required this.id,
+    required this.body,
+    required this.imagePath,
+    required this.timeLabel,
+  });
+
+  final String id;
+  final String body;
+  final String imagePath;
+  final String timeLabel;
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'body': body,
+      'imagePath': imagePath,
+      'timeLabel': timeLabel,
+    };
+  }
+
+  static CourtlyPublishedPost fromJson(Map<String, Object?> json) {
+    return CourtlyPublishedPost(
+      id: json['id'] as String? ?? '',
+      body: json['body'] as String? ?? '',
+      imagePath: json['imagePath'] as String? ?? '',
+      timeLabel: json['timeLabel'] as String? ?? '',
+    );
+  }
+}
+
+class CourtlyPublishedReel {
+  const CourtlyPublishedReel({
+    required this.id,
+    required this.caption,
+    required this.videoPath,
+    required this.timeLabel,
+  });
+
+  final String id;
+  final String caption;
+  final String videoPath;
+  final String timeLabel;
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'caption': caption,
+      'videoPath': videoPath,
+      'timeLabel': timeLabel,
+    };
+  }
+
+  static CourtlyPublishedReel fromJson(Map<String, Object?> json) {
+    return CourtlyPublishedReel(
+      id: json['id'] as String? ?? '',
+      caption: json['caption'] as String? ?? '',
+      videoPath: json['videoPath'] as String? ?? '',
+      timeLabel: json['timeLabel'] as String? ?? '',
+    );
+  }
+}
+
 class CourtlySocialStore {
   const CourtlySocialStore._();
 
   static const instance = CourtlySocialStore._();
-  static final ValueNotifier<int> relationshipVersion = ValueNotifier<int>(0);
+  static final ValueNotifier<int> _relationshipVersion = ValueNotifier<int>(0);
+  static final ValueNotifier<int> _messageCenterVersion = ValueNotifier<int>(0);
+  static final ValueNotifier<int> _publishedContentVersion =
+      ValueNotifier<int>(0);
+
+  ValueNotifier<int> get relationshipVersion => _relationshipVersion;
+  ValueNotifier<int> get messageCenterVersion => _messageCenterVersion;
+  ValueNotifier<int> get publishedContentVersion => _publishedContentVersion;
 
   static const _reportedContentKey = 'courtly_reported_content_ids';
   static const _blockedUsersKey = 'courtly_blocked_user_ids';
@@ -52,6 +169,11 @@ class CourtlySocialStore {
   static const _followersKey = 'courtly_follower_user_ids';
   static const _messageUsersKey = 'courtly_message_user_ids';
   static const _messagePrefix = 'courtly_messages_for_';
+  static const _systemMessagesKey = 'courtly_system_messages';
+  static const _messageCenterSeededKey = 'courtly_message_center_seeded';
+  static const _loginFollowerBoostKey = 'courtly_login_follower_boost_seeded';
+  static const _publishedPostsKey = 'courtly_published_posts';
+  static const _publishedReelsKey = 'courtly_published_reels';
   static const _reportPrefix = 'courtly_report_detail_';
 
   Future<Set<String>> reportedContentIds() async {
@@ -94,6 +216,17 @@ class CourtlySocialStore {
         'createdAt': DateTime.now().toIso8601String(),
       }),
     );
+    await addSystemMessage(
+      CourtlySystemMessage(
+        id: 'report-${contentId.hashCode}-${DateTime.now().microsecondsSinceEpoch}',
+        kind: 'report',
+        title: 'Report submitted',
+        body: 'We saved your report and hid the reported content locally.',
+        timeLabel: _formatTime(DateTime.now()),
+        userId: userId,
+        targetId: 'report:$contentId',
+      ),
+    );
   }
 
   Future<void> blockUser(String userId) async {
@@ -102,6 +235,17 @@ class CourtlySocialStore {
     if (!ids.contains(userId)) {
       ids.add(userId);
       await preferences.setStringList(_blockedUsersKey, ids);
+      await addSystemMessage(
+        CourtlySystemMessage(
+          id: 'block-$userId-${DateTime.now().microsecondsSinceEpoch}',
+          kind: 'block',
+          title: 'Player blocked',
+          body: 'That player and their messages are hidden from Club Chats.',
+          timeLabel: _formatTime(DateTime.now()),
+          userId: userId,
+          targetId: 'user:$userId',
+        ),
+      );
     }
   }
 
@@ -111,6 +255,39 @@ class CourtlySocialStore {
     if (!ids.contains(userId)) {
       ids.add(userId);
       await preferences.setStringList(_followRequestsKey, ids);
+      final followers = preferences.getStringList(_followersKey) ?? <String>[];
+      if (followers.contains(userId)) {
+        final following =
+            preferences.getStringList(_followingKey) ?? <String>[];
+        if (!following.contains(userId)) {
+          following.add(userId);
+          await preferences.setStringList(_followingKey, following);
+        }
+        await addSystemMessage(
+          CourtlySystemMessage(
+            id: 'mutual-$userId-${DateTime.now().microsecondsSinceEpoch}',
+            kind: 'mutual',
+            title: 'Mutual follow unlocked',
+            body:
+                'You and this player follow each other. Private chat is open.',
+            timeLabel: _formatTime(DateTime.now()),
+            userId: userId,
+            targetId: 'user:$userId',
+          ),
+        );
+      } else {
+        await addSystemMessage(
+          CourtlySystemMessage(
+            id: 'follow-$userId-${DateTime.now().microsecondsSinceEpoch}',
+            kind: 'follow',
+            title: 'Follow request sent',
+            body: 'Chat unlocks after this player follows you back.',
+            timeLabel: _formatTime(DateTime.now()),
+            userId: userId,
+            targetId: 'user:$userId',
+          ),
+        );
+      }
       _notifyRelationshipChanged();
     }
   }
@@ -121,6 +298,24 @@ class CourtlySocialStore {
     if (!ids.contains(userId)) {
       ids.add(userId);
       await preferences.setStringList(_followingKey, ids);
+      final followers = preferences.getStringList(_followersKey) ?? <String>[];
+      await addSystemMessage(
+        CourtlySystemMessage(
+          id: followers.contains(userId)
+              ? 'mutual-$userId-${DateTime.now().microsecondsSinceEpoch}'
+              : 'follow-$userId-${DateTime.now().microsecondsSinceEpoch}',
+          kind: followers.contains(userId) ? 'mutual' : 'follow',
+          title: followers.contains(userId)
+              ? 'Mutual follow unlocked'
+              : 'Following player',
+          body: followers.contains(userId)
+              ? 'You and this player follow each other. Private chat is open.'
+              : 'You are following this player.',
+          timeLabel: _formatTime(DateTime.now()),
+          userId: userId,
+          targetId: 'user:$userId',
+        ),
+      );
       _notifyRelationshipChanged();
     }
   }
@@ -137,6 +332,118 @@ class CourtlySocialStore {
     final following = await isFollowing(userId);
     final followers = await _loadStringSet(_followersKey);
     return following && followers.contains(userId);
+  }
+
+  Future<List<String>> mutualFollowUserIds() async {
+    final following = await _loadStringSet(_followingKey);
+    final followers = await _loadStringSet(_followersKey);
+    return following.where(followers.contains).toList(growable: false)..sort();
+  }
+
+  Future<void> ensureLoginFollowerBoost() async {
+    final preferences = await SharedPreferences.getInstance();
+    if (preferences.getBool(_loginFollowerBoostKey) == true) {
+      return;
+    }
+
+    final random = Random(DateTime.now().microsecondsSinceEpoch);
+    final followers = preferences.getStringList(_followersKey) ?? <String>[];
+    final blocked = preferences.getStringList(_blockedUsersKey) ?? <String>[];
+    final candidates = CourtlyUserDirectory.featuredProfiles(20)
+        .where(
+          (profile) =>
+              !followers.contains(profile.id) && !blocked.contains(profile.id),
+        )
+        .toList(growable: false);
+    if (candidates.isEmpty) {
+      await preferences.setBool(_loginFollowerBoostKey, true);
+      return;
+    }
+
+    final shuffledCandidates = List.of(candidates)..shuffle(random);
+    final followerCount = min(shuffledCandidates.length, 2 + random.nextInt(2));
+    final selectedProfiles = shuffledCandidates.take(followerCount).toList();
+    final now = DateTime.now();
+    final newMessages = <CourtlySystemMessage>[];
+
+    for (final profile in selectedProfiles) {
+      followers.add(profile.id);
+      newMessages.add(
+        CourtlySystemMessage(
+          id: 'login-follower-${profile.id}-${now.microsecondsSinceEpoch}',
+          kind: 'follow',
+          title: 'New follower',
+          body:
+              '${profile.name} started following you. Follow back to become mutual friends.',
+          timeLabel: _formatTime(now),
+          userId: profile.id,
+          targetId: 'user:${profile.id}',
+        ),
+      );
+    }
+
+    await preferences.setStringList(_followersKey, followers);
+    final existingMessages = await loadSystemMessages();
+    await preferences.setString(
+      _systemMessagesKey,
+      jsonEncode(
+        [
+          ...newMessages,
+          ...existingMessages,
+        ].take(60).map((message) => message.toJson()).toList(),
+      ),
+    );
+    await preferences.setBool(_loginFollowerBoostKey, true);
+    _notifyRelationshipChanged();
+    _notifyMessageCenterChanged();
+  }
+
+  Future<List<CourtlySystemMessage>> loadSystemMessages() async {
+    final preferences = await SharedPreferences.getInstance();
+    final raw = preferences.getString(_systemMessagesKey);
+    if (raw == null || raw.trim().isEmpty) {
+      return const [];
+    }
+
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) {
+      return const [];
+    }
+
+    return decoded
+        .whereType<Map>()
+        .map((entry) => CourtlySystemMessage.fromJson(entry.cast()))
+        .where((message) => message.id.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  Future<void> saveSystemMessages(List<CourtlySystemMessage> messages) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _systemMessagesKey,
+      jsonEncode(messages.map((message) => message.toJson()).toList()),
+    );
+    _notifyMessageCenterChanged();
+  }
+
+  Future<void> addSystemMessage(CourtlySystemMessage message) async {
+    final messages = await loadSystemMessages();
+    final next = [
+      message,
+      ...messages.where((entry) => entry.id != message.id),
+    ].take(60).toList(growable: false);
+    await saveSystemMessages(next);
+  }
+
+  Future<void> deleteSystemMessage(String messageId) async {
+    final messages = await loadSystemMessages();
+    await saveSystemMessages(
+      messages.where((message) => message.id != messageId).toList(),
+    );
+  }
+
+  Future<void> clearSystemMessages() async {
+    await saveSystemMessages(const []);
   }
 
   Future<List<String>> messageUserIds() async {
@@ -177,6 +484,68 @@ class CourtlySocialStore {
       ids.add(userId);
       await preferences.setStringList(_messageUsersKey, ids);
     }
+    _notifyMessageCenterChanged();
+  }
+
+  Future<void> deleteMessages(String userId) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove('$_messagePrefix$userId');
+    final ids = preferences.getStringList(_messageUsersKey) ?? <String>[];
+    ids.remove(userId);
+    await preferences.setStringList(_messageUsersKey, ids);
+    _notifyMessageCenterChanged();
+  }
+
+  Future<void> clearAllMessages() async {
+    final preferences = await SharedPreferences.getInstance();
+    final ids = preferences.getStringList(_messageUsersKey) ?? <String>[];
+    for (final userId in ids) {
+      await preferences.remove('$_messagePrefix$userId');
+    }
+    await preferences.setStringList(_messageUsersKey, const <String>[]);
+    await preferences.setString(_systemMessagesKey, jsonEncode(const []));
+    _notifyMessageCenterChanged();
+  }
+
+  Future<void> ensureClubMessagesSeeded() async {
+    final preferences = await SharedPreferences.getInstance();
+    await ensureLoginFollowerBoost();
+    if (preferences.getBool(_messageCenterSeededKey) == true) {
+      return;
+    }
+
+    final messageUsers =
+        preferences.getStringList(_messageUsersKey) ?? <String>[];
+    if (!messageUsers.contains('bettie-norton')) {
+      messageUsers.add('bettie-norton');
+    }
+    await preferences.setStringList(_messageUsersKey, messageUsers);
+    if ((await loadMessages('bettie-norton')).isEmpty) {
+      await preferences.setString(
+        '${_messagePrefix}bettie-norton',
+        jsonEncode(
+          const [
+            CourtlyStoredMessage(
+              id: 'seed-chat-bettie-1',
+              senderName: 'Bettie Norton',
+              body: 'Want to book a dusk rally after practice?',
+              timeLabel: '08:36',
+              isMine: false,
+            ),
+            CourtlyStoredMessage(
+              id: 'seed-chat-bettie-2',
+              senderName: 'You',
+              body: 'Yes. Send me the court slot and I will confirm.',
+              timeLabel: '08:38',
+              isMine: true,
+            ),
+          ].map((message) => message.toJson()).toList(),
+        ),
+      );
+    }
+    await preferences.setBool(_messageCenterSeededKey, true);
+    _notifyRelationshipChanged();
+    _notifyMessageCenterChanged();
   }
 
   Future<Set<String>> _loadStringSet(String key) async {
@@ -185,6 +554,16 @@ class CourtlySocialStore {
   }
 
   void _notifyRelationshipChanged() {
-    relationshipVersion.value += 1;
+    _relationshipVersion.value += 1;
+  }
+
+  void _notifyMessageCenterChanged() {
+    _messageCenterVersion.value += 1;
+  }
+
+  String _formatTime(DateTime time) {
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }

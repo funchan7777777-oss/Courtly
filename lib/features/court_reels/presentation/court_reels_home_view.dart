@@ -35,7 +35,7 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
   @override
   void initState() {
     super.initState();
-    CourtlySocialStore.relationshipVersion.addListener(
+    CourtlySocialStore.instance.relationshipVersion.addListener(
       _handleRelationshipChanged,
     );
     unawaited(_loadModerationState());
@@ -44,7 +44,7 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
 
   @override
   void dispose() {
-    CourtlySocialStore.relationshipVersion.removeListener(
+    CourtlySocialStore.instance.relationshipVersion.removeListener(
       _handleRelationshipChanged,
     );
     _pageController.dispose();
