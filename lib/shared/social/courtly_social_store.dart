@@ -149,14 +149,39 @@ class CourtlyPublishedReel {
   }
 }
 
+class CourtlyBlockedUser {
+  const CourtlyBlockedUser({
+    required this.id,
+    required this.name,
+    this.avatarAsset,
+  });
+
+  final String id;
+  final String name;
+  final String? avatarAsset;
+
+  Map<String, Object?> toJson() {
+    return {'id': id, 'name': name, 'avatarAsset': avatarAsset};
+  }
+
+  static CourtlyBlockedUser fromJson(Map<String, Object?> json) {
+    return CourtlyBlockedUser(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      avatarAsset: json['avatarAsset'] as String?,
+    );
+  }
+}
+
 class CourtlySocialStore {
   const CourtlySocialStore._();
 
   static const instance = CourtlySocialStore._();
   static final ValueNotifier<int> _relationshipVersion = ValueNotifier<int>(0);
   static final ValueNotifier<int> _messageCenterVersion = ValueNotifier<int>(0);
-  static final ValueNotifier<int> _publishedContentVersion =
-      ValueNotifier<int>(0);
+  static final ValueNotifier<int> _publishedContentVersion = ValueNotifier<int>(
+    0,
+  );
 
   ValueNotifier<int> get relationshipVersion => _relationshipVersion;
   ValueNotifier<int> get messageCenterVersion => _messageCenterVersion;
@@ -164,6 +189,7 @@ class CourtlySocialStore {
 
   static const _reportedContentKey = 'courtly_reported_content_ids';
   static const _blockedUsersKey = 'courtly_blocked_user_ids';
+  static const _blockedUserProfilesKey = 'courtly_blocked_user_profiles';
   static const _followRequestsKey = 'courtly_follow_request_user_ids';
   static const _followingKey = 'courtly_following_user_ids';
   static const _followersKey = 'courtly_follower_user_ids';
@@ -182,6 +208,33 @@ class CourtlySocialStore {
 
   Future<Set<String>> blockedUserIds() async {
     return _loadStringSet(_blockedUsersKey);
+  }
+
+  Future<List<CourtlyBlockedUser>> loadBlockedUsers() async {
+    final preferences = await SharedPreferences.getInstance();
+    final ids = preferences.getStringList(_blockedUsersKey) ?? <String>[];
+    final summaries = _loadBlockedUserSummaryMap(preferences);
+
+    return ids
+        .map((id) {
+          final stored = summaries[id];
+          if (stored != null && stored.name.trim().isNotEmpty) {
+            return stored;
+          }
+
+          final known = CourtlyUserDirectory.knownById(id);
+          if (known != null) {
+            return CourtlyBlockedUser(
+              id: known.id,
+              name: known.name,
+              avatarAsset: known.avatarAsset,
+            );
+          }
+
+          return CourtlyBlockedUser(id: id, name: 'Blocked user');
+        })
+        .where((profile) => profile.id.trim().isNotEmpty)
+        .toList(growable: false);
   }
 
   Future<bool> isContentReported(String contentId) async {
@@ -229,24 +282,62 @@ class CourtlySocialStore {
     );
   }
 
-  Future<void> blockUser(String userId) async {
+  Future<void> blockUser(
+    String userId, {
+    String? name,
+    String? avatarAsset,
+  }) async {
+    final cleanUserId = userId.trim();
+    if (cleanUserId.isEmpty) {
+      return;
+    }
+
     final preferences = await SharedPreferences.getInstance();
     final ids = preferences.getStringList(_blockedUsersKey) ?? <String>[];
-    if (!ids.contains(userId)) {
-      ids.add(userId);
+    final summaryChanged = await _saveBlockedUserSummary(
+      preferences,
+      userId: cleanUserId,
+      name: name,
+      avatarAsset: avatarAsset,
+    );
+    if (!ids.contains(cleanUserId)) {
+      ids.add(cleanUserId);
       await preferences.setStringList(_blockedUsersKey, ids);
       await addSystemMessage(
         CourtlySystemMessage(
-          id: 'block-$userId-${DateTime.now().microsecondsSinceEpoch}',
+          id: 'block-$cleanUserId-${DateTime.now().microsecondsSinceEpoch}',
           kind: 'block',
           title: 'Player blocked',
           body: 'That player and their messages are hidden from Club Chats.',
           timeLabel: _formatTime(DateTime.now()),
-          userId: userId,
-          targetId: 'user:$userId',
+          userId: cleanUserId,
+          targetId: 'user:$cleanUserId',
         ),
       );
+      _notifyRelationshipChanged();
+    } else if (summaryChanged) {
+      _notifyRelationshipChanged();
     }
+  }
+
+  Future<void> unblockUser(String userId) async {
+    final cleanUserId = userId.trim();
+    if (cleanUserId.isEmpty) {
+      return;
+    }
+
+    final preferences = await SharedPreferences.getInstance();
+    final ids = preferences.getStringList(_blockedUsersKey) ?? <String>[];
+    if (!ids.remove(cleanUserId)) {
+      return;
+    }
+
+    await preferences.setStringList(_blockedUsersKey, ids);
+    final summaries = _loadBlockedUserSummaryMap(preferences);
+    if (summaries.remove(cleanUserId) != null) {
+      await _storeBlockedUserSummaries(preferences, summaries);
+    }
+    _notifyRelationshipChanged();
   }
 
   Future<void> requestFollow(String userId) async {
@@ -507,6 +598,106 @@ class CourtlySocialStore {
     _notifyMessageCenterChanged();
   }
 
+  Future<List<CourtlyPublishedPost>> loadPublishedPosts() async {
+    final preferences = await SharedPreferences.getInstance();
+    final raw = preferences.getString(_publishedPostsKey);
+    if (raw == null || raw.trim().isEmpty) {
+      return const [];
+    }
+
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) {
+      return const [];
+    }
+
+    return decoded
+        .whereType<Map>()
+        .map((entry) => CourtlyPublishedPost.fromJson(entry.cast()))
+        .where((post) => post.id.isNotEmpty && post.imagePath.trim().isNotEmpty)
+        .toList(growable: false);
+  }
+
+  Future<List<CourtlyPublishedReel>> loadPublishedReels() async {
+    final preferences = await SharedPreferences.getInstance();
+    final raw = preferences.getString(_publishedReelsKey);
+    if (raw == null || raw.trim().isEmpty) {
+      return const [];
+    }
+
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) {
+      return const [];
+    }
+
+    return decoded
+        .whereType<Map>()
+        .map((entry) => CourtlyPublishedReel.fromJson(entry.cast()))
+        .where((reel) => reel.id.isNotEmpty && reel.videoPath.trim().isNotEmpty)
+        .toList(growable: false);
+  }
+
+  Future<void> addPublishedPost({
+    required String body,
+    required String imagePath,
+  }) async {
+    final cleanBody = body.trim();
+    final cleanPath = imagePath.trim();
+    if (cleanBody.isEmpty || cleanPath.isEmpty) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final post = CourtlyPublishedPost(
+      id: 'local-post-${now.microsecondsSinceEpoch}',
+      body: cleanBody,
+      imagePath: cleanPath,
+      timeLabel: _formatTime(now),
+    );
+    final posts = await loadPublishedPosts();
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _publishedPostsKey,
+      jsonEncode(
+        [
+          post,
+          ...posts.where((entry) => entry.id != post.id),
+        ].take(80).map((entry) => entry.toJson()).toList(),
+      ),
+    );
+    _notifyPublishedContentChanged();
+  }
+
+  Future<void> addPublishedReel({
+    required String caption,
+    required String videoPath,
+  }) async {
+    final cleanCaption = caption.trim();
+    final cleanPath = videoPath.trim();
+    if (cleanCaption.isEmpty || cleanPath.isEmpty) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final reel = CourtlyPublishedReel(
+      id: 'local-reel-${now.microsecondsSinceEpoch}',
+      caption: cleanCaption,
+      videoPath: cleanPath,
+      timeLabel: _formatTime(now),
+    );
+    final reels = await loadPublishedReels();
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _publishedReelsKey,
+      jsonEncode(
+        [
+          reel,
+          ...reels.where((entry) => entry.id != reel.id),
+        ].take(80).map((entry) => entry.toJson()).toList(),
+      ),
+    );
+    _notifyPublishedContentChanged();
+  }
+
   Future<void> ensureClubMessagesSeeded() async {
     final preferences = await SharedPreferences.getInstance();
     await ensureLoginFollowerBoost();
@@ -553,12 +744,86 @@ class CourtlySocialStore {
     return (preferences.getStringList(key) ?? <String>[]).toSet();
   }
 
+  Future<bool> _saveBlockedUserSummary(
+    SharedPreferences preferences, {
+    required String userId,
+    String? name,
+    String? avatarAsset,
+  }) async {
+    final cleanUserId = userId.trim();
+    if (cleanUserId.isEmpty) {
+      return false;
+    }
+
+    final known = CourtlyUserDirectory.knownById(cleanUserId);
+    final cleanName = name?.trim();
+    final cleanAvatar = avatarAsset?.trim();
+    final summary = CourtlyBlockedUser(
+      id: cleanUserId,
+      name: cleanName == null || cleanName.isEmpty
+          ? known?.name ?? 'Blocked user'
+          : cleanName,
+      avatarAsset: cleanAvatar == null || cleanAvatar.isEmpty
+          ? known?.avatarAsset
+          : cleanAvatar,
+    );
+    final summaries = _loadBlockedUserSummaryMap(preferences);
+    final current = summaries[cleanUserId];
+    if (current != null &&
+        current.name == summary.name &&
+        current.avatarAsset == summary.avatarAsset) {
+      return false;
+    }
+
+    summaries[cleanUserId] = summary;
+    await _storeBlockedUserSummaries(preferences, summaries);
+    return true;
+  }
+
+  Map<String, CourtlyBlockedUser> _loadBlockedUserSummaryMap(
+    SharedPreferences preferences,
+  ) {
+    final raw = preferences.getString(_blockedUserProfilesKey);
+    if (raw == null || raw.trim().isEmpty) {
+      return <String, CourtlyBlockedUser>{};
+    }
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) {
+        return <String, CourtlyBlockedUser>{};
+      }
+
+      return {
+        for (final entry in decoded.whereType<Map>())
+          CourtlyBlockedUser.fromJson(entry.cast()).id:
+              CourtlyBlockedUser.fromJson(entry.cast()),
+      }..removeWhere((id, user) => id.trim().isEmpty || user.name.isEmpty);
+    } catch (_) {
+      return <String, CourtlyBlockedUser>{};
+    }
+  }
+
+  Future<void> _storeBlockedUserSummaries(
+    SharedPreferences preferences,
+    Map<String, CourtlyBlockedUser> summaries,
+  ) async {
+    await preferences.setString(
+      _blockedUserProfilesKey,
+      jsonEncode(summaries.values.map((entry) => entry.toJson()).toList()),
+    );
+  }
+
   void _notifyRelationshipChanged() {
     _relationshipVersion.value += 1;
   }
 
   void _notifyMessageCenterChanged() {
     _messageCenterVersion.value += 1;
+  }
+
+  void _notifyPublishedContentChanged() {
+    _publishedContentVersion.value += 1;
   }
 
   String _formatTime(DateTime time) {

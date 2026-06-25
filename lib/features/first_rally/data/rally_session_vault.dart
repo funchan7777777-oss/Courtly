@@ -1,4 +1,3 @@
-import 'package:courtly/features/first_rally/data/rally_asset_ledger.dart';
 import 'package:courtly/features/first_rally/domain/rally_entry_draft.dart';
 import 'package:courtly/shared/social/courtly_social_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -180,12 +179,6 @@ class RallySessionVault {
       _playStyleKey,
       preferences.getString(_playStyleKey) ?? 'unspecified',
     );
-    await preferences.setString(
-      _avatarImagePathKey,
-      preferences.getString(_avatarImagePathKey) ??
-          RallyAssetLedger.spotlightMark,
-    );
-
     await preferences.setBool(_activeEntryKey, true);
     await preferences.setString(_entryMethodKey, 'local');
     await CourtlySocialStore.instance.ensureLoginFollowerBoost();
@@ -201,7 +194,6 @@ class RallySessionVault {
         personalCourtline: 'Ready for the next friendly match.',
         birthdateMarker: DateTime(2000, 1, 1),
         playStyleKey: 'unspecified',
-        avatarImagePath: RallyAssetLedger.spotlightMark,
       ),
       entryMethod: 'apple',
     );

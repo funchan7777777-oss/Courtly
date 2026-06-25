@@ -191,6 +191,7 @@ class _CourtlyUserProfilePageState extends State<CourtlyUserProfilePage> {
       title: widget.profile.name,
       userId: widget.profile.id,
       summary: widget.profile.bio,
+      avatarAsset: widget.profile.avatarAsset,
     );
     if (result == null || !mounted) {
       return;

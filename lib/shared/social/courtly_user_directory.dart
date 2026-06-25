@@ -52,6 +52,10 @@ abstract final class CourtlyUserDirectory {
         _buildProfile(index: id.hashCode.abs(), name: _titleFromId(id));
   }
 
+  static CourtlyUserProfile? knownById(String id) {
+    return _profilesById[id];
+  }
+
   static List<CourtlyUserProfile> featuredProfiles(int count) {
     return _featuredProfiles.take(count).toList(growable: false);
   }

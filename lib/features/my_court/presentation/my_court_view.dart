@@ -2,13 +2,19 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:courtly/features/club_chats/presentation/club_chats_view.dart';
+import 'package:courtly/features/first_rally/data/rally_asset_ledger.dart';
+import 'package:courtly/features/first_rally/data/rally_policy_links.dart';
 import 'package:courtly/features/first_rally/data/rally_session_vault.dart';
 import 'package:courtly/features/first_rally/domain/rally_entry_draft.dart';
+import 'package:courtly/features/first_rally/presentation/pages/rally_policy_webview_page.dart';
+import 'package:courtly/features/first_rally/presentation/pages/rally_signin_page.dart';
 import 'package:courtly/features/first_rally/presentation/pages/rally_welcome_choice_page.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
+import 'package:courtly/shared/social/courtly_social_store.dart';
 import 'package:courtly/shared/social/courtly_user_directory.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
 
 const Color _courtPurple = Color(0xFF1A004D);
 const Color _courtPurpleDeep = Color(0xFF120034);
@@ -31,8 +37,9 @@ class _MyCourtViewState extends State<MyCourtView> {
   _MyCourtProfile _profile = _MyCourtProfile.defaults();
   _GalleryMode _galleryMode = _GalleryMode.videos;
   int _walletCoins = 1231;
+  List<CourtlyPublishedReel> _publishedReels = const [];
+  List<CourtlyPublishedPost> _publishedPosts = const [];
 
-  List<_CourtPerson> _blacklist = _CourtPersonSeed.blacklist();
   List<_CourtPerson> _fans = _CourtPersonSeed.fans();
   List<_CourtPerson> _follows = _CourtPersonSeed.follows();
   List<_CourtPerson> _friends = _CourtPersonSeed.friends();
@@ -40,7 +47,19 @@ class _MyCourtViewState extends State<MyCourtView> {
   @override
   void initState() {
     super.initState();
+    CourtlySocialStore.instance.publishedContentVersion.addListener(
+      _handlePublishedContentChanged,
+    );
     unawaited(_loadStoredProfile());
+    unawaited(_loadPublishedContent());
+  }
+
+  @override
+  void dispose() {
+    CourtlySocialStore.instance.publishedContentVersion.removeListener(
+      _handlePublishedContentChanged,
+    );
+    super.dispose();
   }
 
   @override
@@ -53,7 +72,7 @@ class _MyCourtViewState extends State<MyCourtView> {
           slivers: [
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 354,
+                height: 510,
                 child: _ProfileHero(
                   profile: _profile,
                   walletCoins: _walletCoins,
@@ -70,7 +89,7 @@ class _MyCourtViewState extends State<MyCourtView> {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
+                padding: const EdgeInsets.fromLTRB(22, 20, 22, 0),
                 child: _GalleryTabs(
                   selected: _galleryMode,
                   onChanged: (mode) => setState(() => _galleryMode = mode),
@@ -79,27 +98,7 @@ class _MyCourtViewState extends State<MyCourtView> {
             ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(22, 16, 22, 126),
-              sliver: _galleryMode == _GalleryMode.videos
-                  ? SliverGrid(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            mainAxisSpacing: 4,
-                            crossAxisSpacing: 4,
-                            childAspectRatio: 0.72,
-                          ),
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        return _VideoTile(assetPath: _videoAssets[index]);
-                      }, childCount: _videoAssets.length),
-                    )
-                  : SliverList.separated(
-                      itemCount: _postNotes.length,
-                      itemBuilder: (context, index) {
-                        return _PostNoteTile(note: _postNotes[index]);
-                      },
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 10),
-                    ),
+              sliver: _buildGallerySliver(),
             ),
           ],
         ),
@@ -127,9 +126,76 @@ class _MyCourtViewState extends State<MyCourtView> {
         birthdate: session.birthdateMarker,
         playStyleKey: session.playStyleKey,
         entryMethod: session.entryMethod,
-        avatarImagePath: session.avatarImagePath,
+        avatarImagePath: _usableProfileImagePath(session.avatarImagePath),
       );
     });
+  }
+
+  Future<void> _loadPublishedContent() async {
+    final store = CourtlySocialStore.instance;
+    final reels = await store.loadPublishedReels();
+    final posts = await store.loadPublishedPosts();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _publishedReels = reels;
+      _publishedPosts = posts;
+    });
+  }
+
+  void _handlePublishedContentChanged() {
+    if (!mounted) {
+      return;
+    }
+    unawaited(_loadPublishedContent());
+  }
+
+  Widget _buildGallerySliver() {
+    if (_galleryMode == _GalleryMode.videos) {
+      if (_publishedReels.isEmpty) {
+        return const SliverToBoxAdapter(
+          child: _GalleryEmptyState(
+            title: 'No videos yet',
+            message: 'Released court videos will appear here.',
+          ),
+        );
+      }
+
+      return SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          mainAxisSpacing: 5,
+          crossAxisSpacing: 5,
+          childAspectRatio: 0.72,
+        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          return _VideoTile(reel: _publishedReels[index]);
+        }, childCount: _publishedReels.length),
+      );
+    }
+
+    if (_publishedPosts.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: _GalleryEmptyState(
+          title: 'No posts yet',
+          message: 'Published court moments will appear here.',
+        ),
+      );
+    }
+
+    return SliverGrid(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 5,
+        crossAxisSpacing: 5,
+        childAspectRatio: 0.72,
+      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        return _PostTile(post: _publishedPosts[index]);
+      }, childCount: _publishedPosts.length),
+    );
   }
 
   Future<void> _openEdit() async {
@@ -162,18 +228,9 @@ class _MyCourtViewState extends State<MyCourtView> {
   }
 
   Future<void> _openSettings() async {
-    final updatedBlacklist = await Navigator.of(context)
-        .push<List<_CourtPerson>>(
-          CupertinoPageRoute<List<_CourtPerson>>(
-            builder: (_) => _MyCourtSettingsPage(blacklist: _blacklist),
-          ),
-        );
-
-    if (updatedBlacklist == null || !mounted) {
-      return;
-    }
-
-    setState(() => _blacklist = updatedBlacklist);
+    await Navigator.of(context).push<void>(
+      CupertinoPageRoute<void>(builder: (_) => const _MyCourtSettingsPage()),
+    );
   }
 
   Future<void> _openWallet() async {
@@ -192,7 +249,7 @@ class _MyCourtViewState extends State<MyCourtView> {
 
   Future<void> _openPeople(_PeopleListKind kind) async {
     final people = switch (kind) {
-      _PeopleListKind.blacklist => _blacklist,
+      _PeopleListKind.blacklist => const <_CourtPerson>[],
       _PeopleListKind.fans => _fans,
       _PeopleListKind.follows => _follows,
       _PeopleListKind.friends => _friends,
@@ -211,7 +268,7 @@ class _MyCourtViewState extends State<MyCourtView> {
     setState(() {
       switch (kind) {
         case _PeopleListKind.blacklist:
-          _blacklist = updated;
+          break;
         case _PeopleListKind.fans:
           _fans = updated;
         case _PeopleListKind.follows:
@@ -246,13 +303,26 @@ class _ProfileHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final profileImagePath = _usableProfileImagePath(profile.avatarImagePath);
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset(
-          'assets/images/Forehand.png',
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
+        _ProfileImage(path: profileImagePath),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                _courtPurpleDeep.withValues(alpha: 0.12),
+                _courtPurpleDeep.withValues(alpha: 0.04),
+                _courtPurpleDeep.withValues(alpha: 0.72),
+                _courtPurple.withValues(alpha: 0.98),
+              ],
+              stops: const [0, 0.45, 0.78, 1],
+            ),
+          ),
         ),
         DecoratedBox(
           decoration: BoxDecoration(
@@ -260,9 +330,9 @@ class _ProfileHero extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                _courtPurpleDeep.withValues(alpha: 0.18),
-                _courtPurpleDeep.withValues(alpha: 0.08),
-                _courtPurple.withValues(alpha: 0.98),
+                CupertinoColors.black.withValues(alpha: 0.18),
+                CupertinoColors.black.withValues(alpha: 0),
+                CupertinoColors.black.withValues(alpha: 0.16),
               ],
             ),
           ),
@@ -285,11 +355,13 @@ class _ProfileHero extends StatelessWidget {
                 minimumSize: Size.zero,
                 padding: EdgeInsets.zero,
                 onPressed: onSettings,
-                child: Image.asset(
-                  'assets/images/Draw.png',
-                  width: 26,
-                  height: 26,
-                  fit: BoxFit.contain,
+                child: const SizedBox.square(
+                  dimension: 42,
+                  child: Icon(
+                    CupertinoIcons.gearshape_fill,
+                    color: _courtPink,
+                    size: 27,
+                  ),
                 ),
               ),
             ],
@@ -298,12 +370,12 @@ class _ProfileHero extends StatelessWidget {
         Positioned(
           left: 22,
           right: 22,
-          bottom: 0,
+          bottom: 4,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: Column(
@@ -353,11 +425,38 @@ class _ProfileHero extends StatelessWidget {
                     minimumSize: Size.zero,
                     padding: EdgeInsets.zero,
                     onPressed: onEdit,
-                    child: Image.asset(
-                      'assets/images/Bounce.png',
+                    child: Container(
                       width: 88,
                       height: 38,
-                      fit: BoxFit.contain,
+                      decoration: BoxDecoration(
+                        color: _courtPink,
+                        borderRadius: BorderRadius.circular(19),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x55FF2DD2),
+                            blurRadius: 18,
+                            offset: Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            CupertinoIcons.pencil,
+                            color: _courtWhite,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Edit',
+                            style: _myTextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -465,10 +564,64 @@ class _GalleryTabButton extends StatelessWidget {
   }
 }
 
-class _VideoTile extends StatelessWidget {
-  const _VideoTile({required this.assetPath});
+class _GalleryEmptyState extends StatelessWidget {
+  const _GalleryEmptyState({required this.title, required this.message});
 
-  final String assetPath;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 28, 18, 28),
+      decoration: BoxDecoration(
+        color: _courtPanel.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _courtWhite.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: _courtWhite.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              CupertinoIcons.tray,
+              color: _courtPinkSoft,
+              size: 25,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: _myTextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: _myTextStyle(
+              color: _courtWhite.withValues(alpha: 0.62),
+              fontSize: 12,
+              height: 1.28,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VideoTile extends StatelessWidget {
+  const _VideoTile({required this.reel});
+
+  final CourtlyPublishedReel reel;
 
   @override
   Widget build(BuildContext context) {
@@ -477,7 +630,7 @@ class _VideoTile extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(assetPath, fit: BoxFit.cover),
+          _VideoThumbnail(videoPath: reel.videoPath),
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -505,42 +658,204 @@ class _VideoTile extends StatelessWidget {
               ),
             ),
           ),
+          Positioned(
+            left: 8,
+            right: 8,
+            bottom: 8,
+            child: Text(
+              reel.caption,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: _myTextStyle(
+                color: _courtWhite.withValues(alpha: 0.92),
+                fontSize: 10,
+                height: 1.16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _PostNoteTile extends StatelessWidget {
-  const _PostNoteTile({required this.note});
+class _VideoThumbnail extends StatefulWidget {
+  const _VideoThumbnail({required this.videoPath});
 
-  final String note;
+  final String videoPath;
+
+  @override
+  State<_VideoThumbnail> createState() => _VideoThumbnailState();
+}
+
+class _VideoThumbnailState extends State<_VideoThumbnail> {
+  VideoPlayerController? _controller;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadController());
+  }
+
+  @override
+  void didUpdateWidget(covariant _VideoThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoPath != widget.videoPath) {
+      unawaited(_loadController());
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-      decoration: BoxDecoration(
-        color: _courtPanel.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(10),
+    final controller = _controller;
+    if (!_ready || controller == null || !controller.value.isInitialized) {
+      return const _MediaPlaceholder(icon: CupertinoIcons.video_camera_solid);
+    }
+
+    final size = controller.value.size;
+    return FittedBox(
+      fit: BoxFit.cover,
+      child: SizedBox(
+        width: size.width,
+        height: size.height,
+        child: VideoPlayer(controller),
       ),
-      child: Text(
-        note,
-        style: _myTextStyle(
-          color: _courtWhite.withValues(alpha: 0.82),
-          fontSize: 13,
-          height: 1.32,
-          fontWeight: FontWeight.w600,
-        ),
+    );
+  }
+
+  Future<void> _loadController() async {
+    final oldController = _controller;
+    _controller = null;
+    _ready = false;
+    await oldController?.dispose();
+
+    final path = widget.videoPath.trim();
+    if (path.isEmpty) {
+      if (mounted) {
+        setState(() {});
+      }
+      return;
+    }
+
+    final controller = path.startsWith('assets/')
+        ? VideoPlayerController.asset(path)
+        : VideoPlayerController.file(File(path));
+
+    try {
+      await controller.initialize();
+      await controller.setVolume(0);
+      await controller.pause();
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() {
+        _controller = controller;
+        _ready = true;
+      });
+    } catch (_) {
+      await controller.dispose();
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+}
+
+class _PostTile extends StatelessWidget {
+  const _PostTile({required this.post});
+
+  final CourtlyPublishedPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(7),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          _MediaImage(path: post.imagePath),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  CupertinoColors.black.withValues(alpha: 0.02),
+                  CupertinoColors.black.withValues(alpha: 0.42),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            left: 8,
+            right: 8,
+            bottom: 8,
+            child: Text(
+              post.body,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: _myTextStyle(
+                color: _courtWhite.withValues(alpha: 0.92),
+                fontSize: 10,
+                height: 1.16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _MyCourtSettingsPage extends StatefulWidget {
-  const _MyCourtSettingsPage({required this.blacklist});
+class _MediaImage extends StatelessWidget {
+  const _MediaImage({required this.path});
 
-  final List<_CourtPerson> blacklist;
+  final String path;
+
+  @override
+  Widget build(BuildContext context) {
+    final imagePath = path.trim();
+    if (imagePath.startsWith('assets/')) {
+      return Image.asset(imagePath, fit: BoxFit.cover);
+    }
+
+    if (imagePath.isNotEmpty) {
+      final file = File(imagePath);
+      if (file.existsSync()) {
+        return Image.file(file, fit: BoxFit.cover);
+      }
+    }
+
+    return const _MediaPlaceholder(icon: CupertinoIcons.photo_fill);
+  }
+}
+
+class _MediaPlaceholder extends StatelessWidget {
+  const _MediaPlaceholder({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(color: _courtPanel),
+      child: Center(child: Icon(icon, color: _courtPinkSoft, size: 28)),
+    );
+  }
+}
+
+class _MyCourtSettingsPage extends StatefulWidget {
+  const _MyCourtSettingsPage();
 
   @override
   State<_MyCourtSettingsPage> createState() => _MyCourtSettingsPageState();
@@ -548,13 +863,6 @@ class _MyCourtSettingsPage extends StatefulWidget {
 
 class _MyCourtSettingsPageState extends State<_MyCourtSettingsPage> {
   final RallySessionVault _sessionVault = const RallySessionVault();
-  late List<_CourtPerson> _blacklist;
-
-  @override
-  void initState() {
-    super.initState();
-    _blacklist = List<_CourtPerson>.of(widget.blacklist);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -576,22 +884,17 @@ class _MyCourtSettingsPageState extends State<_MyCourtSettingsPage> {
                   _SettingRow(
                     icon: CupertinoIcons.doc_text_fill,
                     title: 'Privacy agreement',
-                    onPressed: () => _openPolicy('Privacy agreement'),
+                    onPressed: _openPrivacyPolicy,
                   ),
                   _SettingRow(
                     icon: CupertinoIcons.doc_plaintext,
                     title: 'User agreement',
-                    onPressed: () => _openPolicy('User agreement'),
-                  ),
-                  _SettingRow(
-                    icon: CupertinoIcons.phone_fill,
-                    title: 'Contact Us',
-                    onPressed: _showContactSheet,
+                    onPressed: _openUserAgreement,
                   ),
                   _SettingRow(
                     icon: CupertinoIcons.doc_on_clipboard_fill,
                     title: 'Community guidelines',
-                    onPressed: () => _openPolicy('Community guidelines'),
+                    onPressed: _openCommunityGuidelines,
                   ),
                   _SettingRow(
                     icon: CupertinoIcons.delete_solid,
@@ -623,47 +926,40 @@ class _MyCourtSettingsPageState extends State<_MyCourtSettingsPage> {
   }
 
   Future<void> _openBlacklist() async {
-    final updated = await Navigator.of(context).push<List<_CourtPerson>>(
-      CupertinoPageRoute<List<_CourtPerson>>(
-        builder: (_) => _MyCourtPeoplePage(
-          kind: _PeopleListKind.blacklist,
-          people: _blacklist,
+    await Navigator.of(context).push<void>(
+      CupertinoPageRoute<void>(
+        builder: (_) => const _MyCourtBlockedUsersPage(),
+      ),
+    );
+  }
+
+  void _openPrivacyPolicy() {
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (_) => RallyPolicyWebViewPage(
+          title: 'Privacy Policy',
+          policyUri: RallyPolicyLinks.privacyNotice,
         ),
       ),
     );
-
-    if (updated == null || !mounted) {
-      return;
-    }
-
-    setState(() => _blacklist = updated);
   }
 
-  void _openPolicy(String title) {
-    Navigator.of(
-      context,
-    ).push(CupertinoPageRoute<void>(builder: (_) => _PolicyPage(title: title)));
+  void _openUserAgreement() {
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (_) => RallyPolicyWebViewPage(
+          title: 'Terms of Service',
+          policyUri: RallyPolicyLinks.serviceTerms,
+        ),
+      ),
+    );
   }
 
-  Future<void> _showContactSheet() async {
-    await showCupertinoModalPopup<void>(
-      context: context,
-      builder: (context) {
-        return CupertinoActionSheet(
-          title: const Text('Contact Us'),
-          message: const Text('courtly-support@example.com'),
-          actions: [
-            CupertinoActionSheetAction(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Copy support email'),
-            ),
-          ],
-          cancelButton: CupertinoActionSheetAction(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-        );
-      },
+  void _openCommunityGuidelines() {
+    Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (_) => const _CommunityGuidelinesPage(),
+      ),
     );
   }
 
@@ -679,12 +975,13 @@ class _MyCourtSettingsPageState extends State<_MyCourtSettingsPage> {
       return;
     }
 
-    await _sessionVault.deactivateActiveSession();
-    if (!mounted) {
-      return;
-    }
-
-    _goToWelcome();
+    await _runAccountAction(
+      loadingLabel: 'Logging out',
+      successTitle: 'Logged out',
+      successMessage: 'You have been signed out successfully.',
+      action: _sessionVault.deactivateActiveSession,
+      destination: _goToSignin,
+    );
   }
 
   Future<void> _confirmDeleteAccount() async {
@@ -699,12 +996,36 @@ class _MyCourtSettingsPageState extends State<_MyCourtSettingsPage> {
       return;
     }
 
-    await _sessionVault.deleteLocalAccount();
+    await _runAccountAction(
+      loadingLabel: 'Deleting account',
+      successTitle: 'Account deleted',
+      successMessage: 'Your local Courtly account has been deleted.',
+      action: _sessionVault.deleteLocalAccount,
+      destination: _goToWelcome,
+    );
+  }
+
+  Future<void> _runAccountAction({
+    required String loadingLabel,
+    required String successTitle,
+    required String successMessage,
+    required Future<void> Function() action,
+    required VoidCallback destination,
+  }) async {
+    _showLoadingDialog(loadingLabel);
+    await action();
+    await Future<void>.delayed(const Duration(milliseconds: 620));
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context, rootNavigator: true).pop();
+
+    await _showSuccessDialog(title: successTitle, message: successMessage);
     if (!mounted) {
       return;
     }
 
-    _goToWelcome();
+    destination();
   }
 
   Future<bool> _askForConfirmation({
@@ -744,8 +1065,286 @@ class _MyCourtSettingsPageState extends State<_MyCourtSettingsPage> {
     );
   }
 
+  void _goToSignin() {
+    Navigator.of(context).pushAndRemoveUntil(
+      CupertinoPageRoute<void>(builder: (_) => const RallySigninPage()),
+      (route) => false,
+    );
+  }
+
+  void _showLoadingDialog(String label) {
+    showCupertinoDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return _AccountProgressDialog(label: label);
+      },
+    );
+  }
+
+  Future<void> _showSuccessDialog({
+    required String title,
+    required String message,
+  }) {
+    return showCupertinoDialog<void>(
+      context: context,
+      builder: (context) {
+        return CupertinoAlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _close() {
-    Navigator.of(context).pop(_blacklist);
+    Navigator.of(context).pop();
+  }
+}
+
+class _AccountProgressDialog extends StatelessWidget {
+  const _AccountProgressDialog({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 210,
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+        decoration: BoxDecoration(
+          color: _courtPurpleDeep.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _courtWhite.withValues(alpha: 0.12)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CupertinoActivityIndicator(color: _courtWhite, radius: 14),
+            const SizedBox(height: 16),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: _myTextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MyCourtBlockedUsersPage extends StatefulWidget {
+  const _MyCourtBlockedUsersPage();
+
+  @override
+  State<_MyCourtBlockedUsersPage> createState() =>
+      _MyCourtBlockedUsersPageState();
+}
+
+class _MyCourtBlockedUsersPageState extends State<_MyCourtBlockedUsersPage> {
+  List<CourtlyBlockedUser> _blockedUsers = const [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadBlockedUsers());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoPageScaffold(
+      child: _MyCourtBackdrop(
+        child: Column(
+          children: [
+            _SimpleHeader(
+              title: 'Blacklist',
+              onBack: () => Navigator.of(context).pop(),
+            ),
+            Expanded(
+              child: _loading
+                  ? const Center(
+                      child: CupertinoActivityIndicator(color: _courtWhite),
+                    )
+                  : _blockedUsers.isEmpty
+                  ? const _BlockedUsersEmptyState()
+                  : ListView.separated(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(22, 20, 22, 32),
+                      itemCount: _blockedUsers.length,
+                      itemBuilder: (context, index) {
+                        final profile = _blockedUsers[index];
+                        return _BlockedUserRow(
+                          profile: profile,
+                          onUnblock: () => unawaited(_unblock(profile.id)),
+                        );
+                      },
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 12),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadBlockedUsers() async {
+    final profiles = await CourtlySocialStore.instance.loadBlockedUsers();
+    profiles.sort((left, right) => left.name.compareTo(right.name));
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _blockedUsers = profiles;
+      _loading = false;
+    });
+  }
+
+  Future<void> _unblock(String userId) async {
+    await CourtlySocialStore.instance.unblockUser(userId);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _blockedUsers = _blockedUsers
+          .where((profile) => profile.id != userId)
+          .toList(growable: false);
+    });
+  }
+}
+
+class _BlockedUserRow extends StatelessWidget {
+  const _BlockedUserRow({required this.profile, required this.onUnblock});
+
+  final CourtlyBlockedUser profile;
+  final VoidCallback onUnblock;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 76,
+      decoration: BoxDecoration(
+        color: _courtPanel.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Row(
+        children: [
+          _RoundAvatar(assetPath: profile.avatarAsset, size: 54),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  profile.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _myTextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Messages and posts from this player are hidden.',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _myTextStyle(
+                    color: _courtWhite.withValues(alpha: 0.62),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          CupertinoButton(
+            minimumSize: Size.zero,
+            padding: EdgeInsets.zero,
+            onPressed: onUnblock,
+            child: Container(
+              height: 30,
+              padding: const EdgeInsets.symmetric(horizontal: 13),
+              decoration: BoxDecoration(
+                color: _courtWhite.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: _courtWhite.withValues(alpha: 0.12)),
+              ),
+              child: Center(
+                child: Text(
+                  'Unblock',
+                  style: _myTextStyle(
+                    color: _courtWhite,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BlockedUsersEmptyState extends StatelessWidget {
+  const _BlockedUsersEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 24, 22, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(18, 30, 18, 30),
+        decoration: BoxDecoration(
+          color: _courtPanel.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _courtWhite.withValues(alpha: 0.08)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              CupertinoIcons.person_crop_circle_badge_checkmark,
+              color: _courtPinkSoft,
+              size: 34,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'No blocked users',
+              style: _myTextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              'Players you block from profiles or reports will appear here.',
+              textAlign: TextAlign.center,
+              style: _myTextStyle(
+                color: _courtWhite.withValues(alpha: 0.62),
+                fontSize: 12,
+                height: 1.3,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -1287,10 +1886,8 @@ class _SettingRow extends StatelessWidget {
   }
 }
 
-class _PolicyPage extends StatelessWidget {
-  const _PolicyPage({required this.title});
-
-  final String title;
+class _CommunityGuidelinesPage extends StatelessWidget {
+  const _CommunityGuidelinesPage();
 
   @override
   Widget build(BuildContext context) {
@@ -1299,35 +1896,98 @@ class _PolicyPage extends StatelessWidget {
         child: Column(
           children: [
             _SimpleHeader(
-              title: title,
+              title: 'Community guidelines',
               onBack: () => Navigator.of(context).pop(),
             ),
             Expanded(
               child: ListView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(22, 22, 22, 32),
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _courtPanel.withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      'Courtly keeps tennis social, respectful, and easy to manage. Share authentic match moments, protect private conversations, and use reporting tools when a court circle feels unsafe.',
-                      style: _myTextStyle(
-                        color: _courtWhite.withValues(alpha: 0.8),
-                        fontSize: 13,
-                        height: 1.4,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                children: const [
+                  _GuidelineSection(
+                    title: 'Courtly community standards',
+                    body:
+                        'Courtly is for real tennis moments, friendly match circles, practice clips, and respectful player connection. Keep every post, reel, message, profile, and comment suitable for a broad sports community.',
+                  ),
+                  _GuidelineSection(
+                    title: 'Respect other players',
+                    body:
+                        'Do not harass, threaten, bully, shame, or target another person. Hate speech, slurs, degrading remarks, sexual harassment, stalking, impersonation, and attempts to intimidate other users are not allowed.',
+                  ),
+                  _GuidelineSection(
+                    title: 'Share authentic court content',
+                    body:
+                        'Only upload photos, videos, captions, and comments that you have the right to share. Do not post misleading identity information, stolen media, private conversations, spam, scams, paid manipulation, or content that pretends to be another player.',
+                  ),
+                  _GuidelineSection(
+                    title: 'Keep content safe and lawful',
+                    body:
+                        'Do not share nudity, sexually explicit material, sexual content involving minors, graphic violence, illegal activity, weapon threats, self-harm encouragement, dangerous challenges, or content that violates someone else\'s privacy or intellectual property.',
+                  ),
+                  _GuidelineSection(
+                    title: 'Protect privacy',
+                    body:
+                        'Avoid posting another person\'s phone number, address, private location, payment details, identity documents, or sensitive personal information. Ask permission before posting identifiable images or videos of other players in private settings.',
+                  ),
+                  _GuidelineSection(
+                    title: 'Use reporting and blocking',
+                    body:
+                        'If a post, video, profile, comment, or message feels unsafe, use Report or Block. Reports hide the content locally while review is pending. Blocking hides that player from your experience and can be reversed from Settings > Blacklist.',
+                  ),
+                  _GuidelineSection(
+                    title: 'Moderation and enforcement',
+                    body:
+                        'Courtly may remove content, restrict features, suspend access, or delete accounts when community rules, safety requirements, platform policies, or applicable law are violated. Repeated or severe violations may lead to permanent removal.',
+                  ),
+                  _GuidelineSection(
+                    title: 'Apple platform safety',
+                    body:
+                        'Courtly provides user reporting, blocking, and moderation pathways for user-generated content. Help keep the app safe by reporting abusive material, respecting consent, and keeping all shared content appropriate for the App Store audience.',
                   ),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _GuidelineSection extends StatelessWidget {
+  const _GuidelineSection({required this.title, required this.body});
+
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(16, 15, 16, 16),
+      decoration: BoxDecoration(
+        color: _courtPanel.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _courtWhite.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: _myTextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            body,
+            style: _myTextStyle(
+              color: _courtWhite.withValues(alpha: 0.78),
+              fontSize: 12,
+              height: 1.38,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1533,10 +2193,7 @@ class _EditAvatar extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _ProfileImage(
-              path: avatarImagePath,
-              fallbackAsset: 'assets/images/Clinic.png',
-            ),
+            _ProfileImage(path: avatarImagePath),
             DecoratedBox(
               decoration: BoxDecoration(
                 color: _courtPurpleDeep.withValues(alpha: 0.22),
@@ -1786,11 +2443,12 @@ class _StatButton extends StatelessWidget {
 class _RoundAvatar extends StatelessWidget {
   const _RoundAvatar({required this.assetPath, required this.size});
 
-  final String assetPath;
+  final String? assetPath;
   final double size;
 
   @override
   Widget build(BuildContext context) {
+    final imagePath = assetPath?.trim();
     return Container(
       width: size,
       height: size,
@@ -1802,7 +2460,41 @@ class _RoundAvatar extends StatelessWidget {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Image.asset(assetPath, fit: BoxFit.cover),
+      child: _roundAvatarChild(imagePath),
+    );
+  }
+
+  Widget _roundAvatarChild(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) {
+      return const _RoundAvatarPlaceholder();
+    }
+    if (imagePath.startsWith('assets/')) {
+      return Image.asset(imagePath, fit: BoxFit.cover);
+    }
+
+    final file = File(imagePath);
+    if (file.existsSync()) {
+      return Image.file(file, fit: BoxFit.cover);
+    }
+
+    return const _RoundAvatarPlaceholder();
+  }
+}
+
+class _RoundAvatarPlaceholder extends StatelessWidget {
+  const _RoundAvatarPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: _courtWhite.withValues(alpha: 0.12),
+      child: const Center(
+        child: Icon(
+          CupertinoIcons.person_crop_circle,
+          color: _courtWhite,
+          size: 28,
+        ),
+      ),
     );
   }
 }
@@ -1828,22 +2520,57 @@ class _HeaderIconButton extends StatelessWidget {
 }
 
 class _ProfileImage extends StatelessWidget {
-  const _ProfileImage({required this.path, required this.fallbackAsset});
+  const _ProfileImage({required this.path});
 
   final String? path;
-  final String fallbackAsset;
 
   @override
   Widget build(BuildContext context) {
-    final imagePath = path;
+    final imagePath = _usableProfileImagePath(path);
     if (imagePath != null && imagePath.startsWith('assets/')) {
       return Image.asset(imagePath, fit: BoxFit.cover);
     }
-    if (imagePath != null && imagePath.trim().isNotEmpty) {
-      return Image.file(File(imagePath), fit: BoxFit.cover);
+    if (imagePath != null) {
+      final file = File(imagePath);
+      if (file.existsSync()) {
+        return Image.file(file, fit: BoxFit.cover);
+      }
     }
 
-    return Image.asset(fallbackAsset, fit: BoxFit.cover);
+    return const _ProfilePlaceholder();
+  }
+}
+
+class _ProfilePlaceholder extends StatelessWidget {
+  const _ProfilePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_courtPanelSoft.withValues(alpha: 0.95), _courtPurpleDeep],
+        ),
+      ),
+      child: Center(
+        child: Container(
+          width: 112,
+          height: 112,
+          decoration: BoxDecoration(
+            color: _courtWhite.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+            border: Border.all(color: _courtWhite.withValues(alpha: 0.18)),
+          ),
+          child: const Icon(
+            CupertinoIcons.person_crop_circle,
+            color: _courtWhite,
+            size: 58,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1935,7 +2662,6 @@ class _MyCourtProfile {
       fans: 125,
       follows: 125,
       friends: 125,
-      avatarImagePath: 'assets/images/head/women/woman_head_20.jpg',
     );
   }
 
@@ -2085,20 +2811,17 @@ enum _PeopleListKind {
   }
 }
 
-const List<String> _videoAssets = [
-  'assets/images/post/post_moment_15.jpg',
-  'assets/images/post/post_moment_16.jpg',
-  'assets/images/post/post_moment_17.jpg',
-  'assets/images/post/post_moment_18.jpg',
-  'assets/images/post/post_moment_19.jpg',
-  'assets/images/post/post_moment_20.jpg',
-];
+String? _usableProfileImagePath(String? path) {
+  final imagePath = path?.trim();
+  if (imagePath == null ||
+      imagePath.isEmpty ||
+      imagePath == RallyAssetLedger.spotlightMark ||
+      imagePath.startsWith('assets/images/head/')) {
+    return null;
+  }
 
-const List<String> _postNotes = [
-  'Evening rally notes: serve placement felt cleaner after ten quiet minutes on the baseline.',
-  'Saved a new doubles drill for the next court circle.',
-  'A soft warmup, a sharp split step, and the whole match starts calmer.',
-];
+  return imagePath;
+}
 
 String _formatCoins(int coins) {
   final text = coins.toString();

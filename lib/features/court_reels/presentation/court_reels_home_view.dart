@@ -237,6 +237,7 @@ class _CourtReelsHomeViewState extends State<CourtReelsHomeView> {
       title: reel.playerName,
       userId: reel.userId,
       summary: reel.caption,
+      avatarAsset: reel.avatarAsset,
     );
 
     if (result == null || !mounted) {
@@ -1237,6 +1238,13 @@ class _CourtReelReleasePageState extends State<CourtReelReleasePage> {
     if (!mounted) {
       return;
     }
+    await CourtlySocialStore.instance.addPublishedReel(
+      caption: mood,
+      videoPath: _videoPath!,
+    );
+    if (!mounted) {
+      return;
+    }
     Navigator.of(context).pop();
   }
 
@@ -1654,6 +1662,7 @@ class _CourtReelCommentsSheetState extends State<CourtReelCommentsSheet> {
       title: comment.author,
       userId: comment.authorId,
       summary: comment.message,
+      avatarAsset: comment.avatarAsset,
     );
     if (result == null || !mounted) {
       return;

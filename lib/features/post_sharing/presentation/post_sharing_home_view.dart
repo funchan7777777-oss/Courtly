@@ -319,6 +319,7 @@ class _PostSharingHomeViewState extends State<PostSharingHomeView> {
       title: post.authorName,
       userId: post.authorId,
       summary: post.body,
+      avatarAsset: post.avatarAsset,
     );
 
     if (!mounted || result == null) {
@@ -1206,6 +1207,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
       title: comment.authorName,
       userId: comment.authorId,
       summary: comment.body,
+      avatarAsset: comment.avatarAsset,
     );
     if (result == null || !mounted) {
       return;
@@ -1540,6 +1542,13 @@ class _PostComposerPageState extends State<PostComposerPage> {
       return;
     }
     await showCourtlyReviewDialog(context, contentLabel: 'photo post');
+    if (!mounted) {
+      return;
+    }
+    await CourtlySocialStore.instance.addPublishedPost(
+      body: body,
+      imagePath: _imagePath!,
+    );
     if (!mounted) {
       return;
     }

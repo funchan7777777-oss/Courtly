@@ -24,6 +24,7 @@ Future<CourtlyModerationResult?> showCourtlyModerationSheet({
   required String title,
   String? userId,
   String? summary,
+  String? avatarAsset,
   bool allowBlock = true,
 }) async {
   return showCupertinoModalPopup<CourtlyModerationResult>(
@@ -36,6 +37,7 @@ Future<CourtlyModerationResult?> showCourtlyModerationSheet({
         title: title,
         userId: userId,
         summary: summary,
+        avatarAsset: avatarAsset,
         allowBlock: allowBlock && userId != null,
       );
     },
@@ -109,6 +111,7 @@ class _CourtlyModerationSheet extends StatefulWidget {
     required this.allowBlock,
     this.userId,
     this.summary,
+    this.avatarAsset,
   });
 
   final String targetId;
@@ -116,6 +119,7 @@ class _CourtlyModerationSheet extends StatefulWidget {
   final String title;
   final String? userId;
   final String? summary;
+  final String? avatarAsset;
   final bool allowBlock;
 
   @override
@@ -268,7 +272,11 @@ class _CourtlyModerationSheetState extends State<_CourtlyModerationSheet> {
       return;
     }
     setState(() => _submitting = true);
-    await CourtlySocialStore.instance.blockUser(userId);
+    await CourtlySocialStore.instance.blockUser(
+      userId,
+      name: widget.title,
+      avatarAsset: widget.avatarAsset,
+    );
     if (!mounted) {
       return;
     }

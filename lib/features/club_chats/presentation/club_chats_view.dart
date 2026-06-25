@@ -1534,6 +1534,7 @@ class _ClubChatThreadPageState extends State<ClubChatThreadPage> {
       title: _conversation.playerName,
       userId: _conversation.userId,
       summary: _conversation.preview,
+      avatarAsset: _conversation.avatarAsset,
     );
     if (result == null || !mounted) {
       return;
@@ -1961,10 +1962,7 @@ class _VideoCallHeader extends StatelessWidget {
 }
 
 class _VideoPreview extends StatelessWidget {
-  const _VideoPreview({
-    required this.controller,
-    required this.cameraOn,
-  });
+  const _VideoPreview({required this.controller, required this.cameraOn});
 
   final CameraController controller;
   final bool cameraOn;
