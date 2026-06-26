@@ -937,9 +937,7 @@ class CourtlySocialStore {
   Map<String, CourtlyBlockedPlayer> _loadBlockedPlayerSummaryMap(
     SharedPreferences preferences,
   ) {
-    final raw =
-        preferences.getString(_blockedPlayerCardsKey) ??
-        preferences.getString(_legacyBlockedPlayerCardsKey);
+    final raw = preferences.getString(_blockedPlayerCardsKey);
     if (raw == null || raw.trim().isEmpty) {
       return <String, CourtlyBlockedPlayer>{};
     }
@@ -971,7 +969,6 @@ class CourtlySocialStore {
       _blockedPlayerCardsKey,
       jsonEncode(summaries.values.map((entry) => entry.toJson()).toList()),
     );
-    await preferences.remove(_legacyBlockedPlayerCardsKey);
   }
 
   void _notifyRelationshipChanged() {

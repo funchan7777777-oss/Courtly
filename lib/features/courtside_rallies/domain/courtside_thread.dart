@@ -74,46 +74,6 @@ class CourtsideRallyThread {
   }
 }
 
-class CourtsideCircleInvitation {
-  const CourtsideCircleInvitation({
-    required this.invitationId,
-    required this.playerHandle,
-    required this.courtsideName,
-    required this.ageBandLabel,
-    required this.playerPortraitAsset,
-    required this.courtMotto,
-    required this.isInCourtCircle,
-  });
-
-  final String invitationId;
-  final String playerHandle;
-  final String courtsideName;
-  final String ageBandLabel;
-  final String playerPortraitAsset;
-  final String courtMotto;
-  final bool isInCourtCircle;
-
-  CourtsideCircleInvitation copyWith({
-    String? invitationId,
-    String? playerHandle,
-    String? courtsideName,
-    String? ageBandLabel,
-    String? playerPortraitAsset,
-    String? courtMotto,
-    bool? isInCourtCircle,
-  }) {
-    return CourtsideCircleInvitation(
-      invitationId: invitationId ?? this.invitationId,
-      playerHandle: playerHandle ?? this.playerHandle,
-      courtsideName: courtsideName ?? this.courtsideName,
-      ageBandLabel: ageBandLabel ?? this.ageBandLabel,
-      playerPortraitAsset: playerPortraitAsset ?? this.playerPortraitAsset,
-      courtMotto: courtMotto ?? this.courtMotto,
-      isInCourtCircle: isInCourtCircle ?? this.isInCourtCircle,
-    );
-  }
-}
-
 class CourtsideCallSessionResult {
   const CourtsideCallSessionResult({required this.started});
 

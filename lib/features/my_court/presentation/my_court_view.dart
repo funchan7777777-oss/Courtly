@@ -2875,7 +2875,7 @@ class _MyCourtProfile {
   }
 
   _MyCourtProfile copyWith({
-    String? name,
+    String? courtsideName,
     String? country,
     String? signature,
     DateTime? birthdate,
@@ -2887,7 +2887,7 @@ class _MyCourtProfile {
     String? avatarImagePath,
   }) {
     return _MyCourtProfile(
-      courtsideName: name ?? this.courtsideName,
+      courtsideName: courtsideName ?? this.courtsideName,
       country: country ?? this.country,
       signature: signature ?? this.signature,
       birthdate: birthdate ?? this.birthdate,
@@ -2914,7 +2914,7 @@ class _CourtPerson {
   });
 
   final String id;
-  final String name;
+  final String courtsideName;
   final String ageBandLabel;
   final String country;
   final String playerPortraitAsset;
@@ -2960,7 +2960,7 @@ List<_CourtPerson> _courtPeopleForIds(
         country: profile.divisionLabel,
         playerPortraitAsset: profile.playerPortraitAsset,
         courtCardAsset: profile.courtCardAsset,
-        motto: profile.bio,
+        motto: profile.courtBio,
         followed: followingIds.contains(playerHandle),
       ),
     );

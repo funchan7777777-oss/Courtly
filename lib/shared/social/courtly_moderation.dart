@@ -666,38 +666,6 @@ class _SheetPrimaryButton extends StatelessWidget {
   }
 }
 
-class _SheetSecondaryButton extends StatelessWidget {
-  const _SheetSecondaryButton({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoButton(
-      minimumSize: Size.zero,
-      padding: EdgeInsets.zero,
-      onPressed: onPressed,
-      child: Container(
-        height: 46,
-        decoration: BoxDecoration(
-          color: CupertinoColors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(23),
-          border: Border.all(
-            color: CupertinoColors.white.withValues(alpha: 0.16),
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: _sheetTextStyle(fontSize: 14, fontWeight: FontWeight.w900),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _CourtlyStatusDialog extends StatelessWidget {
   const _CourtlyStatusDialog({
     required this.icon,
