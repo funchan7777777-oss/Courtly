@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:courtly/atelier/theme/courtly_font_families.dart';
+import 'package:courtly/shared/social/courtly_content_safety.dart';
 import 'package:courtly/shared/social/courtly_social_store.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -10,12 +11,12 @@ class CourtlyModerationResult {
   const CourtlyModerationResult({
     required this.action,
     required this.targetId,
-    this.userId,
+    this.playerHandle,
   });
 
   final CourtlyModerationAction action;
   final String targetId;
-  final String? userId;
+  final String? playerHandle;
 }
 
 Future<CourtlyModerationResult?> showCourtlyModerationSheet({
@@ -23,9 +24,9 @@ Future<CourtlyModerationResult?> showCourtlyModerationSheet({
   required String targetId,
   required String targetType,
   required String title,
-  String? userId,
+  String? playerHandle,
   String? summary,
-  String? avatarAsset,
+  String? playerPortraitAsset,
   bool allowBlock = true,
 }) async {
   return showCupertinoModalPopup<CourtlyModerationResult>(
@@ -36,10 +37,10 @@ Future<CourtlyModerationResult?> showCourtlyModerationSheet({
         targetId: targetId,
         targetType: targetType,
         title: title,
-        userId: userId,
+        playerHandle: playerHandle,
         summary: summary,
-        avatarAsset: avatarAsset,
-        allowBlock: allowBlock && userId != null,
+        playerPortraitAsset: playerPortraitAsset,
+        allowBlock: allowBlock && playerHandle != null,
       );
     },
   );
@@ -104,23 +105,34 @@ Future<void> showCourtlyAccessDialog({
   );
 }
 
+Future<void> showCourtlyContentSafetyNotice({
+  required BuildContext context,
+  required CourtlyContentSafetyResult result,
+}) {
+  return showCourtlyAccessDialog(
+    context: context,
+    title: result.title,
+    message: result.message,
+  );
+}
+
 class _CourtlyModerationSheet extends StatefulWidget {
   const _CourtlyModerationSheet({
     required this.targetId,
     required this.targetType,
     required this.title,
     required this.allowBlock,
-    this.userId,
+    this.playerHandle,
     this.summary,
-    this.avatarAsset,
+    this.playerPortraitAsset,
   });
 
   final String targetId;
   final String targetType;
   final String title;
-  final String? userId;
+  final String? playerHandle;
   final String? summary;
-  final String? avatarAsset;
+  final String? playerPortraitAsset;
   final bool allowBlock;
 
   @override
@@ -177,7 +189,7 @@ class _CourtlyModerationSheetState extends State<_CourtlyModerationSheet> {
                   children: [
                     Positioned.fill(
                       child: Image.asset(
-                        'assets/images/Meetup.png',
+                        'assets/images/courtly_meetup.png',
                         fit: BoxFit.fill,
                       ),
                     ),
@@ -252,7 +264,7 @@ class _CourtlyModerationSheetState extends State<_CourtlyModerationSheet> {
       contentId: widget.targetId,
       type: widget.targetType,
       reason: _reason,
-      userId: widget.userId,
+      playerHandle: widget.playerHandle,
       summary: widget.summary,
     );
     if (!mounted) {
@@ -262,21 +274,21 @@ class _CourtlyModerationSheetState extends State<_CourtlyModerationSheet> {
       CourtlyModerationResult(
         action: CourtlyModerationAction.report,
         targetId: widget.targetId,
-        userId: widget.userId,
+        playerHandle: widget.playerHandle,
       ),
     );
   }
 
   Future<void> _block() async {
-    final userId = widget.userId;
-    if (userId == null) {
+    final playerHandle = widget.playerHandle;
+    if (playerHandle == null) {
       return;
     }
     setState(() => _submitting = true);
-    await CourtlySocialStore.instance.blockUser(
-      userId,
-      name: widget.title,
-      avatarAsset: widget.avatarAsset,
+    await CourtlySocialStore.instance.blockPlayer(
+      playerHandle,
+      courtsideName: widget.title,
+      playerPortraitAsset: widget.playerPortraitAsset,
     );
     if (!mounted) {
       return;
@@ -285,16 +297,17 @@ class _CourtlyModerationSheetState extends State<_CourtlyModerationSheet> {
       CourtlyModerationResult(
         action: CourtlyModerationAction.block,
         targetId: widget.targetId,
-        userId: userId,
+        playerHandle: playerHandle,
       ),
     );
   }
 
   static const List<String> _reasons = [
-    'Harassment',
-    'Spam',
-    'Unsafe content',
-    'Impersonation',
+    'Mature or unsafe material',
+    'Abuse or identity harm',
+    'Threatening behavior',
+    'Spam or fraud',
+    'Privacy or impersonation',
     'Other',
   ];
   static const double _artworkAspectRatio = 594 / 746;
@@ -518,7 +531,10 @@ class _SheetImageButton extends StatelessWidget {
           alignment: Alignment.center,
           children: [
             Positioned.fill(
-              child: Image.asset('assets/images/Trophy.png', fit: BoxFit.fill),
+              child: Image.asset(
+                'assets/images/courtly_trophy.png',
+                fit: BoxFit.fill,
+              ),
             ),
             if (busy)
               const CupertinoActivityIndicator(color: CupertinoColors.white),

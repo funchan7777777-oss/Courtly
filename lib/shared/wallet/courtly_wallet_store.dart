@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum CourtlyCoinFeature { publishPost, publishReel, retroCheckIn }
+enum CourtlyCoinFeature { courtKitPrep, practiceReflection }
 
 enum CourtlyPurchaseEventType {
   pending,
@@ -140,22 +140,17 @@ class CourtlyWalletStore {
 
   static const List<CourtlyCoinSpendRule> spendRules = [
     CourtlyCoinSpendRule(
-      feature: CourtlyCoinFeature.publishPost,
-      title: 'Publish a court post',
-      cost: 30,
-      description: 'Share one photo moment to your court feed.',
+      feature: CourtlyCoinFeature.courtKitPrep,
+      title: 'Court Kit prep card',
+      cost: 18,
+      description:
+          'Build and save a tailored warmup, drill, and courtesy plan.',
     ),
     CourtlyCoinSpendRule(
-      feature: CourtlyCoinFeature.publishReel,
-      title: 'Release a video reel',
-      cost: 60,
-      description: 'Release one video clip to the reels court.',
-    ),
-    CourtlyCoinSpendRule(
-      feature: CourtlyCoinFeature.retroCheckIn,
-      title: 'Retro check-in',
+      feature: CourtlyCoinFeature.practiceReflection,
+      title: 'Practice reflection',
       cost: 20,
-      description: 'Recover one missed Tennis Diary check-in.',
+      description: 'Add a saved note for a missed practice session.',
     ),
   ];
 

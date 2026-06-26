@@ -45,13 +45,13 @@ class _RallyRegisterCredentialsPageState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     RallyEntryField(
-                      placeholder: 'Email Address',
+                      placeholder: 'Court email',
                       controller: _addressController,
                       keyboardType: TextInputType.emailAddress,
                     ),
                     const SizedBox(height: 15),
                     RallyEntryField(
-                      placeholder: 'Password',
+                      placeholder: 'Private court code',
                       controller: _servePhraseController,
                       isPrivatePhrase: true,
                     ),

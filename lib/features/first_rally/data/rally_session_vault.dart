@@ -153,7 +153,7 @@ class RallySessionVault {
       final addressName = draft.courtsideAddress.split('@').first.trim();
       await preferences.setString(
         _displayNameKey,
-        addressName.isEmpty ? 'Courtly Player' : addressName,
+        addressName.isEmpty ? 'Mira Vale' : addressName,
       );
     }
 
@@ -189,7 +189,7 @@ class RallySessionVault {
     await activateProfile(
       profileDraft: RallyProfileDraft(
         displayNameSignal: displayNameSignal.trim().isEmpty
-            ? 'Courtly Player'
+            ? 'Mira Vale'
             : displayNameSignal.trim(),
         countryCircuit: 'Courtly Circuit',
         personalCourtline: 'Ready for the next friendly match.',

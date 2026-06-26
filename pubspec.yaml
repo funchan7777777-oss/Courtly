@@ -28,10 +28,10 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
-    - assets/images/head/men/
-    - assets/images/head/women/
-    - assets/images/post/
-    - assets/videos/
+    - assets/images/courtly_members/men/
+    - assets/images/courtly_members/women/
+    - assets/images/courtly_moments/
+    - assets/courtly_clips/
   fonts:
     - family: CourtlyInter
       fonts:

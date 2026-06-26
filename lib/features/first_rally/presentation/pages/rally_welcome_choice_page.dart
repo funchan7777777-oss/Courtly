@@ -120,7 +120,7 @@ class _RallyWelcomeChoicePageState extends State<RallyWelcomeChoicePage> {
       final fallbackName = credential.email?.split('@').first;
       final preferredName = appleName.isNotEmpty
           ? appleName
-          : storedAppleName ?? fallbackName ?? 'Courtly Player';
+          : storedAppleName ?? fallbackName ?? 'Mira Vale';
 
       await _sessionVault.rememberAppleIdentityName(preferredName);
       await _sessionVault.activateAppleEntry(displayNameSignal: preferredName);

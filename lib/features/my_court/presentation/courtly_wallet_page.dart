@@ -264,7 +264,7 @@ class _WalletHero extends StatelessWidget {
         Positioned(
           top: 48,
           child: Image.asset(
-            'assets/images/Clinic.png',
+            'assets/images/courtly_clinic.png',
             width: 132,
             height: 132,
             fit: BoxFit.contain,
@@ -336,7 +336,7 @@ class _CoinPackCard extends StatelessWidget {
         child: Row(
           children: [
             Image.asset(
-              'assets/images/Clinic.png',
+              'assets/images/courtly_clinic.png',
               width: 42,
               height: 42,
               fit: BoxFit.contain,
@@ -420,11 +420,23 @@ class _CoinUsagePanel extends StatelessWidget {
             'Coin uses',
             style: _walletText(fontSize: 17, fontWeight: FontWeight.w900),
           ),
+          const SizedBox(height: 6),
+          Text(
+            'Coins unlock optional planning tools. Sharing photos and videos does not spend coins.',
+            style: _walletText(
+              color: _walletWhite.withValues(alpha: 0.6),
+              fontSize: 11,
+              height: 1.25,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 12),
           for (final rule in rules) ...[
             _UsageRuleRow(rule: rule),
             const SizedBox(height: 10),
           ],
+          const _FreeFeatureRow(label: 'Court moments and practice clips'),
+          const SizedBox(height: 10),
           const _FreeFeatureRow(
             label: 'Mutual chats, messages, and video calls',
           ),
@@ -551,7 +563,7 @@ class _WalletBackdrop extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         Image.asset(
-          'assets/images/Arena.png',
+          'assets/images/courtly_arena.png',
           fit: BoxFit.cover,
           alignment: Alignment.center,
         ),

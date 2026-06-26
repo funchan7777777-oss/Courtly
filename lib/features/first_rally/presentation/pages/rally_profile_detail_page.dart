@@ -9,6 +9,7 @@ import 'package:courtly/features/first_rally/presentation/widgets/rally_backdrop
 import 'package:courtly/features/first_rally/presentation/widgets/rally_entry_field.dart';
 import 'package:courtly/features/first_rally/presentation/widgets/rally_glass_action_button.dart';
 import 'package:courtly/features/first_rally/presentation/widgets/rally_notice_dialog.dart';
+import 'package:courtly/shared/social/courtly_content_safety.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -310,17 +311,32 @@ class _RallyProfileDetailPageState extends State<RallyProfileDetailPage> {
     final countryCircuit = _selectedCountryCircuit;
     final genderSignal = _selectedGenderSignal;
     final birthdateMarker = _birthdateMarker;
+    final displayName = _displayNameController.text.trim();
+    final signature = _signatureController.text.trim();
 
-    if (_displayNameController.text.trim().isEmpty ||
+    if (displayName.isEmpty ||
         countryCircuit == null ||
         genderSignal == null ||
         birthdateMarker == null ||
-        _signatureController.text.trim().isEmpty) {
+        signature.isEmpty) {
       await RallyNoticeDialog.show(
         context,
         title: 'Finish your court card',
         message:
             'Add your name, country, gender, date of birth, and signature before entering.',
+      );
+      return;
+    }
+
+    final safety = CourtlyContentSafety.validateText(
+      '$displayName\n$signature',
+      surface: CourtlyContentSurface.profile,
+    );
+    if (!safety.allowed) {
+      await RallyNoticeDialog.show(
+        context,
+        title: safety.title,
+        message: safety.message,
       );
       return;
     }
@@ -334,9 +350,9 @@ class _RallyProfileDetailPageState extends State<RallyProfileDetailPage> {
 
     await _sessionVault.activateProfile(
       profileDraft: RallyProfileDraft(
-        displayNameSignal: _displayNameController.text,
+        displayNameSignal: displayName,
         countryCircuit: countryCircuit,
-        personalCourtline: _signatureController.text,
+        personalCourtline: signature,
         birthdateMarker: birthdateMarker,
         playStyleKey: genderSignal,
         avatarImagePath: _avatarImagePath,

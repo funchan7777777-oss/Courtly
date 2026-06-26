@@ -27,11 +27,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Courtly uses the camera for profile photos, court video recording, and live court video calls.</string>
+	<string>Courtly uses the camera when you take a courtside profile photo, record a practice clip, or start a mutual video call.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Courtly uses the microphone for recorded court videos and live video calls.</string>
+	<string>Courtly uses the microphone only for practice clips with sound and mutual courtside video calls.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Courtly uses your photo library so you can choose profile images and court video clips.</string>
+	<string>Courtly uses your photo library so you can choose tennis profile images, court moment photos, and practice clips.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

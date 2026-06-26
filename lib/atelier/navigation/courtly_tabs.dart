@@ -1,10 +1,11 @@
 import 'dart:async';
 
 import 'package:courtly/atelier/theme/courtly_font_families.dart';
-import 'package:courtly/features/club_chats/presentation/club_chats_view.dart';
-import 'package:courtly/features/court_reels/presentation/court_reels_home_view.dart';
+import 'package:courtly/features/courtside_rallies/presentation/courtside_rallies_view.dart';
+import 'package:courtly/features/court_kit/presentation/court_kit_view.dart';
+import 'package:courtly/features/court_clips/presentation/court_clip_studio_view.dart';
 import 'package:courtly/features/my_court/presentation/my_court_view.dart';
-import 'package:courtly/features/post_sharing/presentation/post_sharing_home_view.dart';
+import 'package:courtly/features/court_moments/presentation/court_moments_view.dart';
 import 'package:courtly/shared/wallet/courtly_wallet_store.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -19,31 +20,37 @@ class _CourtlyTabsState extends State<CourtlyTabs> {
   int _selectedIndex = 0;
 
   static const List<Widget> _courtDecks = [
-    CourtReelsHomeView(),
-    PostSharingHomeView(),
-    ClubChatsView(),
+    CourtClipStudioView(),
+    CourtMomentsView(),
+    CourtKitView(),
+    CourtsideRalliesView(),
     MyCourtView(),
   ];
 
   static const List<_CourtlyTabSpec> _tabSpecs = [
     _CourtlyTabSpec(
-      activeAsset: 'assets/images/Practice.png',
-      inactiveAsset: 'assets/images/Doubles.png',
+      activeAsset: 'assets/images/courtly_practice.png',
+      inactiveAsset: 'assets/images/courtly_doubles.png',
       label: 'Practice',
     ),
     _CourtlyTabSpec(
-      activeAsset: 'assets/images/Session.png',
-      inactiveAsset: 'assets/images/Partner.png',
+      activeAsset: 'assets/images/courtly_session.png',
+      inactiveAsset: 'assets/images/courtly_partner.png',
       label: 'Session',
     ),
     _CourtlyTabSpec(
-      activeAsset: 'assets/images/Rival.png',
-      inactiveAsset: 'assets/images/Teammate.png',
+      activeAsset: 'assets/images/courtly_clinic.png',
+      inactiveAsset: 'assets/images/courtly_coach.png',
+      label: 'Kit',
+    ),
+    _CourtlyTabSpec(
+      activeAsset: 'assets/images/courtly_rival.png',
+      inactiveAsset: 'assets/images/courtly_teammate.png',
       label: 'Chats',
     ),
     _CourtlyTabSpec(
-      activeAsset: 'assets/images/Warmup.png',
-      inactiveAsset: 'assets/images/Clubhouse.png',
+      activeAsset: 'assets/images/courtly_warmup.png',
+      inactiveAsset: 'assets/images/courtly_clubhouse.png',
       label: 'My Court',
     ),
   ];
@@ -176,7 +183,7 @@ class _CourtlyWelcomeGrantDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Image.asset(
-                    'assets/images/Clinic.png',
+                    'assets/images/courtly_clinic.png',
                     width: 116,
                     height: 116,
                     fit: BoxFit.contain,

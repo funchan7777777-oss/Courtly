@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:courtly/atelier/theme/courtly_font_families.dart';
-import 'package:courtly/features/club_chats/presentation/club_chats_view.dart';
+import 'package:courtly/features/courtside_rallies/presentation/courtside_rallies_view.dart';
 import 'package:courtly/features/first_rally/data/rally_asset_ledger.dart';
 import 'package:courtly/features/first_rally/data/rally_policy_links.dart';
 import 'package:courtly/features/first_rally/data/rally_session_vault.dart';
@@ -13,9 +13,10 @@ import 'package:courtly/features/first_rally/presentation/pages/rally_welcome_ch
 import 'package:courtly/features/my_court/presentation/courtly_wallet_page.dart';
 import 'package:courtly/shared/presentation/courtly_profile_image.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
-import 'package:courtly/shared/social/courtly_current_user_profile.dart';
+import 'package:courtly/shared/social/courtly_content_safety.dart';
+import 'package:courtly/shared/social/courtly_current_player_profile.dart';
 import 'package:courtly/shared/social/courtly_social_store.dart';
-import 'package:courtly/shared/social/courtly_user_directory.dart';
+import 'package:courtly/shared/social/courtly_roster_book.dart';
 import 'package:courtly/shared/wallet/courtly_wallet_store.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
@@ -43,8 +44,8 @@ class _MyCourtViewState extends State<MyCourtView> {
   _MyCourtProfile _profile = _MyCourtProfile.defaults();
   _GalleryMode _galleryMode = _GalleryMode.videos;
   int _walletCoins = 0;
-  List<CourtlyPublishedReel> _publishedReels = const [];
-  List<CourtlyPublishedPost> _publishedPosts = const [];
+  List<CourtlyPublishedClip> _publishedClips = const [];
+  List<CourtlyPublishedMoment> _publishedMoments = const [];
   List<_CourtPerson> _fans = const [];
   List<_CourtPerson> _follows = const [];
   List<_CourtPerson> _friends = const [];
@@ -129,8 +130,8 @@ class _MyCourtViewState extends State<MyCourtView> {
 
     setState(() {
       _profile = _profile.copyWith(
-        name: session.displayNameSignal.trim().isEmpty
-            ? _profile.name
+        courtsideName: session.displayNameSignal.trim().isEmpty
+            ? _profile.courtsideName
             : session.displayNameSignal.trim(),
         country: session.countryCircuit.trim().isEmpty
             ? _profile.country
@@ -148,15 +149,15 @@ class _MyCourtViewState extends State<MyCourtView> {
 
   Future<void> _loadPublishedContent() async {
     final store = CourtlySocialStore.instance;
-    final reels = await store.loadPublishedReels();
-    final posts = await store.loadPublishedPosts();
+    final clips = await store.loadPublishedClips();
+    final moments = await store.loadPublishedMoments();
     if (!mounted) {
       return;
     }
 
     setState(() {
-      _publishedReels = reels;
-      _publishedPosts = posts;
+      _publishedClips = clips;
+      _publishedMoments = moments;
     });
   }
 
@@ -171,10 +172,10 @@ class _MyCourtViewState extends State<MyCourtView> {
   Future<void> _loadRelationships() async {
     final store = CourtlySocialStore.instance;
     await store.ensureLoginFollowerBoost();
-    final blockedIds = await store.blockedUserIds();
-    final followerIds = await store.followerUserIds();
-    final followingIds = await store.followingUserIds();
-    final outgoingFollowIds = await store.outgoingFollowUserIds();
+    final blockedIds = await store.blockedPlayerHandles();
+    final followerIds = await store.followerPlayerHandles();
+    final followingIds = await store.followingPlayerHandles();
+    final outgoingFollowIds = await store.outgoingFollowPlayerHandles();
     final followingSet = followingIds.toSet();
     final outgoingFollowSet = outgoingFollowIds.toSet();
     final followerSet = followerIds.toSet();
@@ -232,7 +233,7 @@ class _MyCourtViewState extends State<MyCourtView> {
 
   Widget _buildGallerySliver() {
     if (_galleryMode == _GalleryMode.videos) {
-      if (_publishedReels.isEmpty) {
+      if (_publishedClips.isEmpty) {
         return const SliverToBoxAdapter(
           child: _GalleryEmptyState(
             title: 'No videos yet',
@@ -249,15 +250,15 @@ class _MyCourtViewState extends State<MyCourtView> {
           childAspectRatio: 0.72,
         ),
         delegate: SliverChildBuilderDelegate((context, index) {
-          return _VideoTile(reel: _publishedReels[index]);
-        }, childCount: _publishedReels.length),
+          return _VideoTile(clip: _publishedClips[index]);
+        }, childCount: _publishedClips.length),
       );
     }
 
-    if (_publishedPosts.isEmpty) {
+    if (_publishedMoments.isEmpty) {
       return const SliverToBoxAdapter(
         child: _GalleryEmptyState(
-          title: 'No posts yet',
+          title: 'No moments yet',
           message: 'Published court moments will appear here.',
         ),
       );
@@ -271,8 +272,8 @@ class _MyCourtViewState extends State<MyCourtView> {
         childAspectRatio: 0.72,
       ),
       delegate: SliverChildBuilderDelegate((context, index) {
-        return _PostTile(post: _publishedPosts[index]);
-      }, childCount: _publishedPosts.length),
+        return _MomentTile(moment: _publishedMoments[index]);
+      }, childCount: _publishedMoments.length),
     );
   }
 
@@ -294,7 +295,7 @@ class _MyCourtViewState extends State<MyCourtView> {
   Future<void> _persistProfile(_MyCourtProfile profile) {
     return _sessionVault.activateProfile(
       profileDraft: RallyProfileDraft(
-        displayNameSignal: profile.name,
+        displayNameSignal: profile.courtsideName,
         countryCircuit: profile.country,
         personalCourtline: profile.signature,
         birthdateMarker: profile.birthdate,
@@ -412,7 +413,7 @@ class _ProfileHero extends StatelessWidget {
           child: Row(
             children: [
               Image.asset(
-                'assets/images/Pickup.png',
+                'assets/images/courtly_pickup.png',
                 width: 148,
                 height: 34,
                 fit: BoxFit.contain,
@@ -453,7 +454,7 @@ class _ProfileHero extends StatelessWidget {
                           children: [
                             Flexible(
                               child: Text(
-                                profile.name,
+                                profile.courtsideName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: _myTextStyle(
@@ -550,7 +551,7 @@ class _ProfileHero extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   children: [
                     Image.asset(
-                      'assets/images/Mixer.png',
+                      'assets/images/courtly_mixer.png',
                       width: double.infinity,
                       height: 54,
                       fit: BoxFit.fill,
@@ -593,9 +594,9 @@ class _GalleryTabs extends StatelessWidget {
         ),
         const SizedBox(width: 22),
         _GalleryTabButton(
-          label: 'Post',
-          selected: selected == _GalleryMode.posts,
-          onPressed: () => onChanged(_GalleryMode.posts),
+          label: 'Moments',
+          selected: selected == _GalleryMode.moments,
+          onPressed: () => onChanged(_GalleryMode.moments),
         ),
       ],
     );
@@ -687,9 +688,9 @@ class _GalleryEmptyState extends StatelessWidget {
 }
 
 class _VideoTile extends StatelessWidget {
-  const _VideoTile({required this.reel});
+  const _VideoTile({required this.clip});
 
-  final CourtlyPublishedReel reel;
+  final CourtlyPublishedClip clip;
 
   @override
   Widget build(BuildContext context) {
@@ -698,7 +699,7 @@ class _VideoTile extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          _VideoThumbnail(videoPath: reel.videoPath),
+          _VideoThumbnail(videoPath: clip.videoPath),
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -731,7 +732,7 @@ class _VideoTile extends StatelessWidget {
             right: 8,
             bottom: 8,
             child: Text(
-              reel.caption,
+              clip.rallyNote,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: _myTextStyle(
@@ -838,10 +839,10 @@ class _VideoThumbnailState extends State<_VideoThumbnail> {
   }
 }
 
-class _PostTile extends StatelessWidget {
-  const _PostTile({required this.post});
+class _MomentTile extends StatelessWidget {
+  const _MomentTile({required this.moment});
 
-  final CourtlyPublishedPost post;
+  final CourtlyPublishedMoment moment;
 
   @override
   Widget build(BuildContext context) {
@@ -850,7 +851,7 @@ class _PostTile extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          _MediaImage(path: post.imagePath),
+          _MediaImage(path: moment.imagePath),
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -868,7 +869,7 @@ class _PostTile extends StatelessWidget {
             right: 8,
             bottom: 8,
             child: Text(
-              post.body,
+              moment.courtNote,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: _myTextStyle(
@@ -938,7 +939,7 @@ class _MyCourtSettingsPageState extends State<_MyCourtSettingsPage> {
       child: _MyCourtBackdrop(
         child: Column(
           children: [
-            _SimpleHeader(title: 'Setting', onBack: _close),
+            _SimpleHeader(title: 'Settings', onBack: _close),
             Expanded(
               child: ListView(
                 physics: const BouncingScrollPhysics(),
@@ -946,18 +947,18 @@ class _MyCourtSettingsPageState extends State<_MyCourtSettingsPage> {
                 children: [
                   _SettingRow(
                     icon: CupertinoIcons.person_crop_circle_badge_xmark,
-                    title: 'Blacklist',
+                    title: 'Blocked players',
                     onPressed: () => unawaited(_openBlacklist()),
                   ),
                   _SettingRow(
                     icon: CupertinoIcons.doc_text_fill,
-                    title: 'Privacy agreement',
+                    title: 'Privacy Policy',
                     onPressed: _openPrivacyPolicy,
                   ),
                   _SettingRow(
                     icon: CupertinoIcons.doc_plaintext,
-                    title: 'User agreement',
-                    onPressed: _openUserAgreement,
+                    title: 'Terms of Service',
+                    onPressed: _openTermsOfService,
                   ),
                   _SettingRow(
                     icon: CupertinoIcons.doc_on_clipboard_fill,
@@ -965,8 +966,13 @@ class _MyCourtSettingsPageState extends State<_MyCourtSettingsPage> {
                     onPressed: _openCommunityGuidelines,
                   ),
                   _SettingRow(
+                    icon: CupertinoIcons.envelope_fill,
+                    title: 'Safety contact',
+                    onPressed: _openSafetyContact,
+                  ),
+                  _SettingRow(
                     icon: CupertinoIcons.delete_solid,
-                    title: 'Deletion of account',
+                    title: 'Delete account',
                     destructive: true,
                     onPressed: () => unawaited(_confirmDeleteAccount()),
                   ),
@@ -980,7 +986,7 @@ class _MyCourtSettingsPageState extends State<_MyCourtSettingsPage> {
                 padding: EdgeInsets.zero,
                 onPressed: () => unawaited(_confirmLogout()),
                 child: Image.asset(
-                  'assets/images/Contact.png',
+                  'assets/images/courtly_contact.png',
                   width: double.infinity,
                   height: 52,
                   fit: BoxFit.fill,
@@ -996,7 +1002,7 @@ class _MyCourtSettingsPageState extends State<_MyCourtSettingsPage> {
   Future<void> _openBlacklist() async {
     await Navigator.of(context).push<void>(
       CupertinoPageRoute<void>(
-        builder: (_) => const _MyCourtBlockedUsersPage(),
+        builder: (_) => const _MyCourtBlockedPlayersPage(),
       ),
     );
   }
@@ -1012,7 +1018,7 @@ class _MyCourtSettingsPageState extends State<_MyCourtSettingsPage> {
     );
   }
 
-  void _openUserAgreement() {
+  void _openTermsOfService() {
     Navigator.of(context).push(
       CupertinoPageRoute<void>(
         builder: (_) => RallyPolicyWebViewPage(
@@ -1028,6 +1034,26 @@ class _MyCourtSettingsPageState extends State<_MyCourtSettingsPage> {
       CupertinoPageRoute<void>(
         builder: (_) => const _CommunityGuidelinesPage(),
       ),
+    );
+  }
+
+  Future<void> _openSafetyContact() {
+    return showCupertinoDialog<void>(
+      context: context,
+      builder: (context) {
+        return CupertinoAlertDialog(
+          title: const Text('Safety contact'),
+          content: const Text(
+            'For content safety reports, moderation questions, or account support, email support@courtly.app. In-app reports hide the content immediately, and safety requests are reviewed within 24 hours.',
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1209,22 +1235,23 @@ class _AccountProgressDialog extends StatelessWidget {
   }
 }
 
-class _MyCourtBlockedUsersPage extends StatefulWidget {
-  const _MyCourtBlockedUsersPage();
+class _MyCourtBlockedPlayersPage extends StatefulWidget {
+  const _MyCourtBlockedPlayersPage();
 
   @override
-  State<_MyCourtBlockedUsersPage> createState() =>
-      _MyCourtBlockedUsersPageState();
+  State<_MyCourtBlockedPlayersPage> createState() =>
+      _MyCourtBlockedPlayersPageState();
 }
 
-class _MyCourtBlockedUsersPageState extends State<_MyCourtBlockedUsersPage> {
-  List<CourtlyBlockedUser> _blockedUsers = const [];
+class _MyCourtBlockedPlayersPageState
+    extends State<_MyCourtBlockedPlayersPage> {
+  List<CourtlyBlockedPlayer> _blockedPlayers = const [];
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_loadBlockedUsers());
+    unawaited(_loadBlockedPlayers());
   }
 
   @override
@@ -1234,7 +1261,7 @@ class _MyCourtBlockedUsersPageState extends State<_MyCourtBlockedUsersPage> {
         child: Column(
           children: [
             _SimpleHeader(
-              title: 'Blacklist',
+              title: 'Blocked players',
               onBack: () => Navigator.of(context).pop(),
             ),
             Expanded(
@@ -1242,17 +1269,18 @@ class _MyCourtBlockedUsersPageState extends State<_MyCourtBlockedUsersPage> {
                   ? const Center(
                       child: CupertinoActivityIndicator(color: _courtWhite),
                     )
-                  : _blockedUsers.isEmpty
-                  ? const _BlockedUsersEmptyState()
+                  : _blockedPlayers.isEmpty
+                  ? const _BlockedPlayersEmptyState()
                   : ListView.separated(
                       physics: const BouncingScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(22, 20, 22, 32),
-                      itemCount: _blockedUsers.length,
+                      itemCount: _blockedPlayers.length,
                       itemBuilder: (context, index) {
-                        final profile = _blockedUsers[index];
-                        return _BlockedUserRow(
+                        final profile = _blockedPlayers[index];
+                        return _BlockedPlayerRow(
                           profile: profile,
-                          onUnblock: () => unawaited(_unblock(profile.id)),
+                          onUnblock: () =>
+                              unawaited(_unblock(profile.playerHandle)),
                         );
                       },
                       separatorBuilder: (context, index) =>
@@ -1265,37 +1293,39 @@ class _MyCourtBlockedUsersPageState extends State<_MyCourtBlockedUsersPage> {
     );
   }
 
-  Future<void> _loadBlockedUsers() async {
-    final profiles = await CourtlySocialStore.instance.loadBlockedUsers();
-    profiles.sort((left, right) => left.name.compareTo(right.name));
+  Future<void> _loadBlockedPlayers() async {
+    final profiles = await CourtlySocialStore.instance.loadBlockedPlayers();
+    profiles.sort(
+      (left, right) => left.courtsideName.compareTo(right.courtsideName),
+    );
     if (!mounted) {
       return;
     }
 
     setState(() {
-      _blockedUsers = profiles;
+      _blockedPlayers = profiles;
       _loading = false;
     });
   }
 
-  Future<void> _unblock(String userId) async {
-    await CourtlySocialStore.instance.unblockUser(userId);
+  Future<void> _unblock(String playerHandle) async {
+    await CourtlySocialStore.instance.unblockPlayer(playerHandle);
     if (!mounted) {
       return;
     }
 
     setState(() {
-      _blockedUsers = _blockedUsers
-          .where((profile) => profile.id != userId)
+      _blockedPlayers = _blockedPlayers
+          .where((profile) => profile.playerHandle != playerHandle)
           .toList(growable: false);
     });
   }
 }
 
-class _BlockedUserRow extends StatelessWidget {
-  const _BlockedUserRow({required this.profile, required this.onUnblock});
+class _BlockedPlayerRow extends StatelessWidget {
+  const _BlockedPlayerRow({required this.profile, required this.onUnblock});
 
-  final CourtlyBlockedUser profile;
+  final CourtlyBlockedPlayer profile;
   final VoidCallback onUnblock;
 
   @override
@@ -1309,7 +1339,7 @@ class _BlockedUserRow extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Row(
         children: [
-          _RoundAvatar(assetPath: profile.avatarAsset, size: 54),
+          _RoundAvatar(assetPath: profile.playerPortraitAsset, size: 54),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1317,7 +1347,7 @@ class _BlockedUserRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  profile.name,
+                  profile.courtsideName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: _myTextStyle(
@@ -1327,7 +1357,7 @@ class _BlockedUserRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Messages and posts from this player are hidden.',
+                  'Messages and moments from this player are hidden.',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: _myTextStyle(
@@ -1370,8 +1400,8 @@ class _BlockedUserRow extends StatelessWidget {
   }
 }
 
-class _BlockedUsersEmptyState extends StatelessWidget {
-  const _BlockedUsersEmptyState();
+class _BlockedPlayersEmptyState extends StatelessWidget {
+  const _BlockedPlayersEmptyState();
 
   @override
   Widget build(BuildContext context) {
@@ -1395,7 +1425,7 @@ class _BlockedUsersEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              'No blocked users',
+              'No blocked players',
               style: _myTextStyle(fontSize: 16, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 7),
@@ -1437,7 +1467,7 @@ class _MyCourtEditPageState extends State<_MyCourtEditPage> {
   void initState() {
     super.initState();
     _draft = widget.profile;
-    _nameController.text = _draft.name;
+    _nameController.text = _draft.courtsideName;
     _countryController.text = _draft.country;
     _signatureController.text = _draft.signature;
   }
@@ -1485,7 +1515,7 @@ class _MyCourtEditPageState extends State<_MyCourtEditPage> {
                     children: [
                       Expanded(
                         child: _GenderChoice(
-                          assetPath: 'assets/images/Story.png',
+                          assetPath: 'assets/images/courtly_story.png',
                           selected: _draft.playStyleKey == 'balanced',
                           onPressed: () => setState(
                             () => _draft = _draft.copyWith(
@@ -1497,7 +1527,7 @@ class _MyCourtEditPageState extends State<_MyCourtEditPage> {
                       const SizedBox(width: 14),
                       Expanded(
                         child: _GenderChoice(
-                          assetPath: 'assets/images/Invite.png',
+                          assetPath: 'assets/images/courtly_invite.png',
                           selected: _draft.playStyleKey == 'aggressive',
                           onPressed: () => setState(
                             () => _draft = _draft.copyWith(
@@ -1520,13 +1550,13 @@ class _MyCourtEditPageState extends State<_MyCourtEditPage> {
                   const SizedBox(height: 10),
                   _EditField(
                     controller: _nameController,
-                    placeholder: 'Please choose a nickname',
+                    placeholder: 'Set your courtside name',
                     icon: CupertinoIcons.person_fill,
                   ),
                   const SizedBox(height: 12),
                   _EditField(
                     controller: _countryController,
-                    placeholder: 'Please select a country',
+                    placeholder: 'Choose your court circuit',
                     icon: CupertinoIcons.location_solid,
                   ),
                   const SizedBox(height: 12),
@@ -1537,7 +1567,7 @@ class _MyCourtEditPageState extends State<_MyCourtEditPage> {
                   const SizedBox(height: 12),
                   _EditField(
                     controller: _signatureController,
-                    placeholder: 'Please enter a personalized signature',
+                    placeholder: 'Write your matchday courtline',
                     icon: CupertinoIcons.pencil,
                     minLines: 5,
                     maxLines: 5,
@@ -1546,9 +1576,9 @@ class _MyCourtEditPageState extends State<_MyCourtEditPage> {
                   CupertinoButton(
                     minimumSize: Size.zero,
                     padding: EdgeInsets.zero,
-                    onPressed: _save,
+                    onPressed: () => unawaited(_save()),
                     child: Image.asset(
-                      'assets/images/Setpoint.png',
+                      'assets/images/courtly_set_point.png',
                       width: double.infinity,
                       height: 56,
                       fit: BoxFit.fill,
@@ -1687,14 +1717,22 @@ class _MyCourtEditPageState extends State<_MyCourtEditPage> {
     setState(() => _draft = _draft.copyWith(birthdate: nextDate));
   }
 
-  void _save() {
+  Future<void> _save() async {
     final name = _nameController.text.trim();
     final country = _countryController.text.trim();
     final signature = _signatureController.text.trim();
+    final safety = CourtlyContentSafety.validateText(
+      '$name\n$country\n$signature',
+      surface: CourtlyContentSurface.profile,
+    );
+    if (!safety.allowed) {
+      await _showAvatarNotice(title: safety.title, message: safety.message);
+      return;
+    }
 
     Navigator.of(context).pop(
       _draft.copyWith(
-        name: name.isEmpty ? 'Courtly Player' : name,
+        courtsideName: name.isEmpty ? 'Mira Vale' : name,
         country: country.isEmpty ? 'Courtly Circuit' : country,
         signature: signature.isEmpty
             ? 'The racket catches the dusk wind, all worries fade with every hit'
@@ -1772,7 +1810,7 @@ class _MyCourtPeoplePageState extends State<_MyCourtPeoplePage> {
     switch (widget.kind) {
       case _PeopleListKind.blacklist:
         await _runPersonAction(person.id, () async {
-          await CourtlySocialStore.instance.unblockUser(person.id);
+          await CourtlySocialStore.instance.unblockPlayer(person.id);
           if (!mounted) {
             return;
           }
@@ -1785,7 +1823,7 @@ class _MyCourtPeoplePageState extends State<_MyCourtPeoplePage> {
           return;
         }
         await _runPersonAction(person.id, () async {
-          await CourtlySocialStore.instance.followUserLocally(person.id);
+          await CourtlySocialStore.instance.followPlayerLocally(person.id);
           if (!mounted) {
             return;
           }
@@ -1800,7 +1838,7 @@ class _MyCourtPeoplePageState extends State<_MyCourtPeoplePage> {
         });
       case _PeopleListKind.follows:
         await _runPersonAction(person.id, () async {
-          await CourtlySocialStore.instance.unfollowUser(person.id);
+          await CourtlySocialStore.instance.unfollowPlayer(person.id);
           if (!mounted) {
             return;
           }
@@ -1832,13 +1870,13 @@ class _MyCourtPeoplePageState extends State<_MyCourtPeoplePage> {
   }
 
   Future<void> _openChat(_CourtPerson person) {
-    return openClubChatForProfile(
+    return openCourtsideRallyForCard(
       context,
-      CourtlyUserDirectory.fromIdentity(
-        id: person.id,
-        name: person.name,
-        avatarAsset: person.avatarAsset,
-        heroAsset: person.heroAsset,
+      CourtlyRosterBook.fromCourtsideIdentity(
+        playerHandle: person.id,
+        courtsideName: person.courtsideName,
+        playerPortraitAsset: person.playerPortraitAsset,
+        courtCardAsset: person.courtCardAsset,
       ),
     );
   }
@@ -1961,32 +1999,32 @@ class _CommunityGuidelinesPage extends StatelessWidget {
                   _GuidelineSection(
                     title: 'Courtly community standards',
                     body:
-                        'Courtly is for real tennis moments, friendly match circles, practice clips, and respectful player connection. Keep every post, reel, message, profile, and comment suitable for a broad sports community.',
+                        'Courtly is for real tennis moments, friendly match circles, practice clips, and respectful player connection. Keep every moment, clip, message, profile, and comment suitable for a broad sports community.',
                   ),
                   _GuidelineSection(
                     title: 'Respect other players',
                     body:
-                        'Do not harass, threaten, bully, shame, or target another person. Hate speech, slurs, degrading remarks, sexual harassment, stalking, impersonation, and attempts to intimidate other users are not allowed.',
+                        'Do not harass, threaten, bully, shame, or target another person. Identity-based attacks, degrading remarks, stalking, impersonation, and attempts to intimidate other players are not allowed.',
                   ),
                   _GuidelineSection(
                     title: 'Share authentic court content',
                     body:
-                        'Only upload photos, videos, captions, and comments that you have the right to share. Do not post misleading identity information, stolen media, private conversations, spam, scams, paid manipulation, or content that pretends to be another player.',
+                        'Only upload photos, videos, captions, and comments that you have the right to share. Do not publish misleading identity information, stolen media, private conversations, unwanted promotions, paid manipulation, or content that pretends to be another player.',
                   ),
                   _GuidelineSection(
                     title: 'Keep content safe and lawful',
                     body:
-                        'Do not share nudity, sexually explicit material, sexual content involving minors, graphic violence, illegal activity, weapon threats, self-harm encouragement, dangerous challenges, or content that violates someone else\'s privacy or intellectual property.',
+                        'Do not share mature material, exploitative material, graphic harm, illegal activity, dangerous threats, harmful instructions, unsafe challenges, or content that violates someone else\'s privacy or intellectual property.',
                   ),
                   _GuidelineSection(
                     title: 'Protect privacy',
                     body:
-                        'Avoid posting another person\'s phone number, address, private location, payment details, identity documents, or sensitive personal information. Ask permission before posting identifiable images or videos of other players in private settings.',
+                        'Avoid sharing another person\'s phone number, address, private location, payment details, identity documents, or sensitive personal information. Ask permission before sharing identifiable images or videos of other players in private settings.',
                   ),
                   _GuidelineSection(
                     title: 'Use reporting and blocking',
                     body:
-                        'If a post, video, profile, comment, or message feels unsafe, use Report or Block. Reports hide the content locally while review is pending. Blocking hides that player from your experience and can be reversed from Settings > Blacklist.',
+                        'If a moment, video, profile, comment, or message feels unsafe, use Report or Block. Reports hide the content locally while review is pending. Blocking hides that player from your experience and can be reversed from Settings > Blocked players.',
                   ),
                   _GuidelineSection(
                     title: 'Moderation and enforcement',
@@ -1994,9 +2032,14 @@ class _CommunityGuidelinesPage extends StatelessWidget {
                         'Courtly may remove content, restrict features, suspend access, or delete accounts when community rules, safety requirements, platform policies, or applicable law are violated. Repeated or severe violations may lead to permanent removal.',
                   ),
                   _GuidelineSection(
+                    title: 'Contact and response',
+                    body:
+                        'For safety concerns or moderation follow-up, contact support@courtly.app. In-app reports hide the content immediately, and safety requests are reviewed within 24 hours.',
+                  ),
+                  _GuidelineSection(
                     title: 'Apple platform safety',
                     body:
-                        'Courtly provides user reporting, blocking, and moderation pathways for user-generated content. Help keep the app safe by reporting abusive material, respecting consent, and keeping all shared content appropriate for the App Store audience.',
+                        'Courtly provides player reporting, blocking, and moderation pathways for player-generated content. Help keep the app safe by reporting abusive material, respecting consent, and keeping all shared content appropriate for the App Store audience.',
                   ),
                 ],
               ),
@@ -2072,7 +2115,7 @@ class _PersonRow extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         child: Row(
           children: [
-            _RoundAvatar(assetPath: person.avatarAsset, size: 52),
+            _RoundAvatar(assetPath: person.playerPortraitAsset, size: 52),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -2083,7 +2126,7 @@ class _PersonRow extends StatelessWidget {
                     children: [
                       Flexible(
                         child: Text(
-                          person.name,
+                          person.courtsideName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: _myTextStyle(
@@ -2093,7 +2136,7 @@ class _PersonRow extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 5),
-                      _AgePill(ageLabel: person.ageLabel),
+                      _AgePill(ageBandLabel: person.ageBandLabel),
                       const SizedBox(width: 5),
                       Text(
                         person.country,
@@ -2154,7 +2197,7 @@ class _PersonActionButton extends StatelessWidget {
         padding: EdgeInsets.zero,
         onPressed: onPressed,
         child: Image.asset(
-          'assets/images/Roster.png',
+          'assets/images/courtly_roster.png',
           width: 84,
           height: 30,
           fit: BoxFit.contain,
@@ -2231,7 +2274,7 @@ class _InlineEmptyState extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Image.asset(
-          'assets/images/Love.png',
+          'assets/images/courtly_love.png',
           width: 196,
           height: 196,
           fit: BoxFit.contain,
@@ -2559,9 +2602,9 @@ class _AgeTag extends StatelessWidget {
 }
 
 class _AgePill extends StatelessWidget {
-  const _AgePill({required this.ageLabel});
+  const _AgePill({required this.ageBandLabel});
 
-  final String ageLabel;
+  final String ageBandLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -2574,7 +2617,7 @@ class _AgePill extends StatelessWidget {
       ),
       child: Center(
         child: Text(
-          ageLabel,
+          ageBandLabel,
           style: _myTextStyle(fontSize: 9, fontWeight: FontWeight.w900),
         ),
       ),
@@ -2757,8 +2800,8 @@ class _MyCourtBackdrop extends StatelessWidget {
       children: [
         Image.asset(
           useWalletBackdrop
-              ? 'assets/images/Tournament.png'
-              : 'assets/images/Swing.png',
+              ? 'assets/images/courtly_tournament.png'
+              : 'assets/images/courtly_swing.png',
           fit: BoxFit.cover,
           alignment: Alignment.center,
         ),
@@ -2783,7 +2826,7 @@ class _MyCourtBackdrop extends StatelessWidget {
 
 class _MyCourtProfile {
   const _MyCourtProfile({
-    required this.name,
+    required this.courtsideName,
     required this.country,
     required this.signature,
     required this.birthdate,
@@ -2795,7 +2838,7 @@ class _MyCourtProfile {
     this.avatarImagePath,
   });
 
-  final String name;
+  final String courtsideName;
   final String country;
   final String signature;
   final DateTime birthdate;
@@ -2817,7 +2860,7 @@ class _MyCourtProfile {
 
   static _MyCourtProfile defaults() {
     return _MyCourtProfile(
-      name: 'Bettie Norton',
+      courtsideName: 'Mira Vale',
       country: 'Colombia',
       signature:
           'The racket catches the dusk wind, all worries fade with every hit',
@@ -2827,7 +2870,7 @@ class _MyCourtProfile {
       fans: 0,
       follows: 0,
       friends: 0,
-      avatarImagePath: CourtlyCurrentUserProfile.fallbackAvatarPath,
+      avatarImagePath: CourtlyCurrentPlayerProfile.fallbackAvatarPath,
     );
   }
 
@@ -2844,7 +2887,7 @@ class _MyCourtProfile {
     String? avatarImagePath,
   }) {
     return _MyCourtProfile(
-      name: name ?? this.name,
+      courtsideName: name ?? this.courtsideName,
       country: country ?? this.country,
       signature: signature ?? this.signature,
       birthdate: birthdate ?? this.birthdate,
@@ -2861,32 +2904,32 @@ class _MyCourtProfile {
 class _CourtPerson {
   const _CourtPerson({
     required this.id,
-    required this.name,
-    required this.ageLabel,
+    required this.courtsideName,
+    required this.ageBandLabel,
     required this.country,
-    required this.avatarAsset,
-    required this.heroAsset,
+    required this.playerPortraitAsset,
+    required this.courtCardAsset,
     required this.motto,
     required this.followed,
   });
 
   final String id;
   final String name;
-  final String ageLabel;
+  final String ageBandLabel;
   final String country;
-  final String avatarAsset;
-  final String heroAsset;
+  final String playerPortraitAsset;
+  final String courtCardAsset;
   final String motto;
   final bool followed;
 
   _CourtPerson copyWith({bool? followed}) {
     return _CourtPerson(
       id: id,
-      name: name,
-      ageLabel: ageLabel,
+      courtsideName: courtsideName,
+      ageBandLabel: ageBandLabel,
       country: country,
-      avatarAsset: avatarAsset,
-      heroAsset: heroAsset,
+      playerPortraitAsset: playerPortraitAsset,
+      courtCardAsset: courtCardAsset,
       motto: motto,
       followed: followed ?? this.followed,
     );
@@ -2894,39 +2937,40 @@ class _CourtPerson {
 }
 
 List<_CourtPerson> _courtPeopleForIds(
-  Iterable<String> userIds, {
+  Iterable<String> playerHandles, {
   required Set<String> followingIds,
   required Set<String> blockedIds,
 }) {
   final seen = <String>{};
   final people = <_CourtPerson>[];
 
-  for (final userId in userIds) {
-    if (userId.trim().isEmpty ||
-        blockedIds.contains(userId) ||
-        !seen.add(userId)) {
+  for (final playerHandle in playerHandles) {
+    if (playerHandle.trim().isEmpty ||
+        blockedIds.contains(playerHandle) ||
+        !seen.add(playerHandle)) {
       continue;
     }
 
-    final profile = CourtlyUserDirectory.byId(userId);
+    final profile = CourtlyRosterBook.byHandle(playerHandle);
     people.add(
       _CourtPerson(
-        id: profile.id,
-        name: profile.name,
-        ageLabel: profile.ageLabel,
-        country: profile.genderLabel,
-        avatarAsset: profile.avatarAsset,
-        heroAsset: profile.heroAsset,
+        id: profile.playerHandle,
+        courtsideName: profile.courtsideName,
+        ageBandLabel: profile.ageBandLabel,
+        country: profile.divisionLabel,
+        playerPortraitAsset: profile.playerPortraitAsset,
+        courtCardAsset: profile.courtCardAsset,
         motto: profile.bio,
-        followed: followingIds.contains(userId),
+        followed: followingIds.contains(playerHandle),
       ),
     );
   }
 
-  return people..sort((left, right) => left.name.compareTo(right.name));
+  return people
+    ..sort((left, right) => left.courtsideName.compareTo(right.courtsideName));
 }
 
-enum _GalleryMode { videos, posts }
+enum _GalleryMode { videos, moments }
 
 enum _PeopleListKind {
   blacklist,
@@ -2936,7 +2980,7 @@ enum _PeopleListKind {
 
   String get title {
     return switch (this) {
-      _PeopleListKind.blacklist => 'Blacklist',
+      _PeopleListKind.blacklist => 'Blocked players',
       _PeopleListKind.fans => 'Fans',
       _PeopleListKind.follows => 'Follow',
       _PeopleListKind.friends => 'Friends',

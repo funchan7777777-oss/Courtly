@@ -14,7 +14,7 @@
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" image="LaunchSurface" translatesAutoresizingMaskIntoConstraints="NO" id="qIS-7s-Bpq">
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" image="CourtlyLaunchSurface" translatesAutoresizingMaskIntoConstraints="NO" id="qIS-7s-Bpq">
                                 <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                             </imageView>
                         </subviews>
@@ -33,6 +33,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="LaunchSurface" width="390" height="844"/>
+        <image name="CourtlyLaunchSurface" width="390" height="844"/>
     </resources>
 </document>
