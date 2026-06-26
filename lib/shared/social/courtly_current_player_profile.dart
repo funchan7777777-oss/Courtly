@@ -1,5 +1,4 @@
 import 'package:courtly/features/first_rally/data/rally_session_vault.dart';
-import 'package:courtly/shared/data/courtly_media_assets.dart';
 
 class CourtlyCurrentPlayerProfile {
   const CourtlyCurrentPlayerProfile({
@@ -8,8 +7,7 @@ class CourtlyCurrentPlayerProfile {
   });
 
   static const String playerHandle = 'you';
-  static const String fallbackAvatarPath =
-      'assets/images/courtly_members/women/courtly_member_w_01.jpg';
+  static const String placeholderAvatarPath = '';
 
   final String displayName;
   final String avatarPath;
@@ -17,7 +15,7 @@ class CourtlyCurrentPlayerProfile {
   static CourtlyCurrentPlayerProfile fallback() {
     return const CourtlyCurrentPlayerProfile(
       displayName: 'You',
-      avatarPath: fallbackAvatarPath,
+      avatarPath: placeholderAvatarPath,
     );
   }
 }
@@ -39,13 +37,10 @@ Future<CourtlyCurrentPlayerProfile> loadCourtlyCurrentPlayerProfile() async {
 
 String _currentPlayerAvatarPath(String? avatarImagePath) {
   final path = avatarImagePath?.trim();
-  if (path == null || path.isEmpty) {
-    return CourtlyCurrentPlayerProfile.fallbackAvatarPath;
-  }
-
-  if (path.startsWith('assets/images/courtly_members/') &&
-      !CourtlyMediaAssets.allHeads.contains(path)) {
-    return CourtlyCurrentPlayerProfile.fallbackAvatarPath;
+  if (path == null ||
+      path.isEmpty ||
+      path == 'assets/images/courtly_members/women/courtly_member_w_01.jpg') {
+    return CourtlyCurrentPlayerProfile.placeholderAvatarPath;
   }
 
   return path;

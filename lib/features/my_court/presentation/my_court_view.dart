@@ -14,7 +14,6 @@ import 'package:courtly/features/my_court/presentation/courtly_wallet_page.dart'
 import 'package:courtly/shared/presentation/courtly_profile_image.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:courtly/shared/social/courtly_content_safety.dart';
-import 'package:courtly/shared/social/courtly_current_player_profile.dart';
 import 'package:courtly/shared/social/courtly_social_store.dart';
 import 'package:courtly/shared/social/courtly_roster_book.dart';
 import 'package:courtly/shared/wallet/courtly_wallet_store.dart';
@@ -171,7 +170,7 @@ class _MyCourtViewState extends State<MyCourtView> {
 
   Future<void> _loadRelationships() async {
     final store = CourtlySocialStore.instance;
-    await store.ensureLoginFollowerBoost();
+    await store.removeStarterSeedContent();
     final blockedIds = await store.blockedPlayerHandles();
     final followerIds = await store.followerPlayerHandles();
     final followingIds = await store.followingPlayerHandles();
@@ -2300,7 +2299,6 @@ class _EditAvatar extends StatelessWidget {
         width: 156,
         height: 156,
         child: Stack(
-          clipBehavior: Clip.none,
           children: [
             Positioned.fill(
               child: Container(
@@ -2342,65 +2340,49 @@ class _EditAvatar extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Center(
+                      Align(
+                        alignment: Alignment.center,
                         child: Container(
-                          width: 54,
-                          height: 54,
-                          decoration: BoxDecoration(
-                            color: _courtPurpleDeep.withValues(alpha: 0.52),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _courtWhite.withValues(alpha: 0.22),
-                            ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 13,
+                            vertical: 10,
                           ),
-                          child: const Icon(
-                            CupertinoIcons.camera_fill,
-                            color: _courtWhite,
-                            size: 26,
+                          decoration: BoxDecoration(
+                            color: _courtPurpleDeep.withValues(alpha: 0.62),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: _courtWhite.withValues(alpha: 0.18),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _courtPurpleDeep.withValues(alpha: 0.26),
+                                blurRadius: 12,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                CupertinoIcons.camera_fill,
+                                color: _courtWhite,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 7),
+                              Text(
+                                'Change',
+                                style: _myTextStyle(
+                                  color: _courtWhite,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              right: -2,
-              bottom: -2,
-              child: Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: _courtPink,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: _courtPurpleDeep, width: 4),
-                ),
-                child: const Icon(
-                  CupertinoIcons.plus,
-                  color: _courtWhite,
-                  size: 23,
-                ),
-              ),
-            ),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 14,
-              child: Container(
-                height: 24,
-                decoration: BoxDecoration(
-                  color: _courtPurpleDeep.withValues(alpha: 0.56),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    'Profile photo',
-                    style: _myTextStyle(
-                      color: _courtWhite.withValues(alpha: 0.82),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
                   ),
                 ),
               ),
@@ -2864,7 +2846,7 @@ class _MyCourtProfile {
       fans: 0,
       follows: 0,
       friends: 0,
-      avatarImagePath: CourtlyCurrentPlayerProfile.fallbackAvatarPath,
+      avatarImagePath: null,
     );
   }
 
@@ -2986,7 +2968,9 @@ String? _usableProfileImagePath(String? path) {
   final imagePath = path?.trim();
   if (imagePath == null ||
       imagePath.isEmpty ||
-      imagePath == RallyAssetLedger.spotlightMark) {
+      imagePath == RallyAssetLedger.spotlightMark ||
+      imagePath ==
+          'assets/images/courtly_members/women/courtly_member_w_01.jpg') {
     return null;
   }
 

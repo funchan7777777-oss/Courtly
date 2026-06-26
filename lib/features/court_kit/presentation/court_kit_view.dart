@@ -79,7 +79,7 @@ class _CourtKitViewState extends State<CourtKitView> {
                     22,
                     0,
                   ),
-                  child: _KitHeader(rule: rule),
+                  child: _KitHeader(rule: rule, savedCount: _savedCards.length),
                 ),
               ),
               SliverToBoxAdapter(
@@ -106,7 +106,11 @@ class _CourtKitViewState extends State<CourtKitView> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
-                    child: _PrepCardPanel(card: _activeCard!),
+                    child: _PrepCardPanel(
+                      card: _activeCard!,
+                      onApplySetup: () => _applyCardSetup(_activeCard!),
+                      onDelete: () => unawaited(_deleteSavedCard(_activeCard!)),
+                    ),
                   ),
                 ),
               SliverToBoxAdapter(
@@ -115,9 +119,10 @@ class _CourtKitViewState extends State<CourtKitView> {
                   child: _SavedCardsPanel(
                     cards: _savedCards,
                     onOpen: (card) => setState(() => _activeCard = card),
+                    onDelete: (card) => unawaited(_deleteSavedCard(card)),
                     onClear: _savedCards.isEmpty
                         ? null
-                        : () => unawaited(_clearSavedCards()),
+                        : () => unawaited(_askClearSavedCards()),
                   ),
                 ),
               ),
@@ -150,15 +155,17 @@ class _CourtKitViewState extends State<CourtKitView> {
       return;
     }
 
-    setState(() => _isBuilding = true);
     final paid = await showCourtlyCoinSpendGate(
       context: context,
       feature: CourtlyCoinFeature.courtKitPrep,
     );
     if (!paid || !mounted) {
-      if (mounted) {
-        setState(() => _isBuilding = false);
-      }
+      return;
+    }
+
+    setState(() => _isBuilding = true);
+    await Future<void>.delayed(const Duration(milliseconds: 320));
+    if (!mounted) {
       return;
     }
 
@@ -173,11 +180,7 @@ class _CourtKitViewState extends State<CourtKitView> {
       card,
       ..._savedCards.where((entry) => entry.id != card.id),
     ].take(8).toList(growable: false);
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setStringList(
-      _savedCardsKey,
-      nextCards.map((entry) => jsonEncode(entry.toJson())).toList(),
-    );
+    await _storeSavedCards(nextCards);
     if (!mounted) {
       return;
     }
@@ -187,6 +190,51 @@ class _CourtKitViewState extends State<CourtKitView> {
       _savedCards = nextCards;
       _isBuilding = false;
     });
+  }
+
+  Future<void> _deleteSavedCard(_CourtKitCard card) async {
+    final nextCards = _savedCards
+        .where((entry) => entry.id != card.id)
+        .toList(growable: false);
+    await _storeSavedCards(nextCards);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _savedCards = nextCards;
+      if (_activeCard?.id == card.id) {
+        _activeCard = nextCards.isEmpty ? null : nextCards.first;
+      }
+    });
+  }
+
+  Future<void> _askClearSavedCards() async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) {
+        return CupertinoAlertDialog(
+          title: const Text('Clear saved plans?'),
+          content: const Text(
+            'This removes every Court Kit plan on this device.',
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Clear'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed == true && mounted) {
+      await _clearSavedCards();
+    }
   }
 
   Future<void> _clearSavedCards() async {
@@ -201,83 +249,192 @@ class _CourtKitViewState extends State<CourtKitView> {
       _activeCard = null;
     });
   }
+
+  Future<void> _storeSavedCards(List<_CourtKitCard> cards) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setStringList(
+      _savedCardsKey,
+      cards.map((entry) => jsonEncode(entry.toJson())).toList(),
+    );
+  }
+
+  void _applyCardSetup(_CourtKitCard card) {
+    final focus = _KitFocus.fromKey(
+      card.focusKey.isEmpty ? card.title : card.focusKey,
+    );
+    final length = _KitLength.fromKey(
+      card.lengthKey.isEmpty ? card.title : card.lengthKey,
+    );
+    final surface = _KitSurface.fromKey(
+      card.surfaceKey.isEmpty ? card.subtitle : card.surfaceKey,
+    );
+    final partner = _KitPartner.fromKey(
+      card.partnerKey.isEmpty ? card.subtitle : card.partnerKey,
+    );
+    if (focus == null || length == null || surface == null || partner == null) {
+      return;
+    }
+
+    setState(() {
+      _focus = focus;
+      _length = length;
+      _surface = surface;
+      _partner = partner;
+    });
+  }
 }
 
 class _KitHeader extends StatelessWidget {
-  const _KitHeader({required this.rule});
+  const _KitHeader({required this.rule, required this.savedCount});
 
   final CourtlyCoinSpendRule rule;
+  final int savedCount;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Court Kit',
-                style: _kitText(fontSize: 28, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 7),
-              Text(
-                'Build a focused warmup, drill, and courtesy card before a private court session.',
-                style: _kitText(
-                  color: _kitWhite.withValues(alpha: 0.72),
-                  fontSize: 12,
-                  height: 1.28,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 16, 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _kitWhite.withValues(alpha: 0.18),
+            _kitPanel.withValues(alpha: 0.52),
+          ],
         ),
-        const SizedBox(width: 14),
-        Container(
-          width: 82,
-          height: 82,
-          decoration: BoxDecoration(
-            color: _kitPanel.withValues(alpha: 0.62),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: _kitWhite.withValues(alpha: 0.1)),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _kitWhite.withValues(alpha: 0.14)),
+        boxShadow: [
+          BoxShadow(
+            color: _kitPurpleDeep.withValues(alpha: 0.28),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
           ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Image.asset(
-                'assets/images/courtly_coach.png',
-                width: 68,
-                height: 68,
-                fit: BoxFit.contain,
-              ),
-              Positioned(
-                right: 8,
-                bottom: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 4,
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Court Kit',
+                  style: _kitText(fontSize: 32, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Generate a court-ready plan with warmup, drill pattern, etiquette, and gear notes.',
+                  style: _kitText(
+                    color: _kitWhite.withValues(alpha: 0.74),
+                    fontSize: 12,
+                    height: 1.32,
+                    fontWeight: FontWeight.w700,
                   ),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _KitHeaderPill(
+                      icon: CupertinoIcons.sparkles,
+                      label: '${rule.cost} coins',
+                    ),
+                    _KitHeaderPill(
+                      icon: CupertinoIcons.doc_text_fill,
+                      label: '$savedCount saved',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          SizedBox(
+            width: 88,
+            height: 96,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 78,
+                  height: 78,
                   decoration: BoxDecoration(
-                    color: _kitGold,
-                    borderRadius: BorderRadius.circular(999),
+                    color: _kitGold.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: _kitGold.withValues(alpha: 0.28)),
                   ),
-                  child: Text(
-                    '${rule.cost}',
-                    style: _kitText(
+                ),
+                Image.asset(
+                  'assets/images/courtly_coach.png',
+                  width: 76,
+                  height: 76,
+                  fit: BoxFit.contain,
+                ),
+                Positioned(
+                  right: 2,
+                  bottom: 4,
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: _kitGold,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: _kitGold.withValues(alpha: 0.32),
+                          blurRadius: 12,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      CupertinoIcons.check_mark,
                       color: _kitPurpleDeep,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
+                      size: 17,
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
+    );
+  }
+}
+
+class _KitHeaderPill extends StatelessWidget {
+  const _KitHeaderPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: _kitWhite.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _kitWhite.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: _kitGold, size: 14),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: _kitText(fontSize: 11, fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -315,8 +472,59 @@ class _KitBuilderPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: _kitGold.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  CupertinoIcons.slider_horizontal_3,
+                  color: _kitGold,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Plan setup',
+                      style: _kitText(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Tune the session before spending coins.',
+                      style: _kitText(
+                        color: _kitWhite.withValues(alpha: 0.56),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _KitSelectionSummary(
+            focus: focus,
+            length: length,
+            surface: surface,
+            partner: partner,
+          ),
+          const SizedBox(height: 18),
           _OptionGroup<_KitFocus>(
             title: 'Focus',
+            detail: 'The main skill theme for this plan',
+            icon: CupertinoIcons.scope,
             selected: focus,
             options: [
               for (final value in _KitFocus.values)
@@ -327,6 +535,8 @@ class _KitBuilderPanel extends StatelessWidget {
           const SizedBox(height: 18),
           _OptionGroup<_KitLength>(
             title: 'Session length',
+            detail: 'Sets warmup depth and gear pacing',
+            icon: CupertinoIcons.timer,
             selected: length,
             options: [
               for (final value in _KitLength.values)
@@ -337,6 +547,8 @@ class _KitBuilderPanel extends StatelessWidget {
           const SizedBox(height: 18),
           _OptionGroup<_KitSurface>(
             title: 'Court context',
+            detail: 'Adapts movement, targets, and equipment',
+            icon: CupertinoIcons.sportscourt,
             selected: surface,
             options: [
               for (final value in _KitSurface.values)
@@ -347,6 +559,8 @@ class _KitBuilderPanel extends StatelessWidget {
           const SizedBox(height: 18),
           _OptionGroup<_KitPartner>(
             title: 'Partner mode',
+            detail: 'Adds etiquette notes for the session',
+            icon: CupertinoIcons.person_2,
             selected: partner,
             options: [
               for (final value in _KitPartner.values)
@@ -363,9 +577,14 @@ class _KitBuilderPanel extends StatelessWidget {
               height: 52,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: isBuilding
-                    ? _kitWhite.withValues(alpha: 0.16)
-                    : _kitPink,
+                gradient: isBuilding
+                    ? null
+                    : const LinearGradient(
+                        colors: [_kitPink, _kitGold],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                color: isBuilding ? _kitWhite.withValues(alpha: 0.16) : null,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   if (!isBuilding)
@@ -377,18 +596,38 @@ class _KitBuilderPanel extends StatelessWidget {
                 ],
               ),
               child: Center(
-                child: Text(
-                  isBuilding
-                      ? 'Building card...'
-                      : 'Build prep card - ${rule.cost} coins',
-                  style: _kitText(fontSize: 14, fontWeight: FontWeight.w900),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isBuilding
+                          ? CupertinoIcons.hourglass
+                          : CupertinoIcons.sparkles,
+                      color: _kitWhite,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        isBuilding
+                            ? 'Building plan...'
+                            : 'Generate court plan - ${rule.cost} coins',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _kitText(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
           const SizedBox(height: 10),
           Text(
-            'Court moments and practice clips stay free. Coins only unlock optional planning tools.',
+            'Posting court moments and practice clips stays free. Coins only unlock optional planning tools.',
             textAlign: TextAlign.center,
             style: _kitText(
               color: _kitWhite.withValues(alpha: 0.58),
@@ -403,10 +642,133 @@ class _KitBuilderPanel extends StatelessWidget {
   }
 }
 
+class _KitSelectionSummary extends StatelessWidget {
+  const _KitSelectionSummary({
+    required this.focus,
+    required this.length,
+    required this.surface,
+    required this.partner,
+  });
+
+  final _KitFocus focus;
+  final _KitLength length;
+  final _KitSurface surface;
+  final _KitPartner partner;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _KitSummaryCell(
+                icon: CupertinoIcons.scope,
+                label: 'Focus',
+                value: focus.label,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _KitSummaryCell(
+                icon: CupertinoIcons.timer_fill,
+                label: 'Length',
+                value: length.label,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _KitSummaryCell(
+                icon: CupertinoIcons.sportscourt_fill,
+                label: 'Court',
+                value: surface.label,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _KitSummaryCell(
+                icon: CupertinoIcons.person_2_fill,
+                label: 'Mode',
+                value: partner.shortLabel,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _KitSummaryCell extends StatelessWidget {
+  const _KitSummaryCell({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 58,
+      padding: const EdgeInsets.fromLTRB(10, 9, 10, 8),
+      decoration: BoxDecoration(
+        color: _kitWhite.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kitWhite.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: _kitGold, size: 17),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _kitText(
+                    color: _kitWhite.withValues(alpha: 0.48),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _kitText(fontSize: 12, fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PrepCardPanel extends StatelessWidget {
-  const _PrepCardPanel({required this.card});
+  const _PrepCardPanel({
+    required this.card,
+    required this.onApplySetup,
+    required this.onDelete,
+  });
 
   final _CourtKitCard card;
+  final VoidCallback onApplySetup;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -422,9 +784,18 @@ class _PrepCardPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
+                      'Active plan',
+                      style: _kitText(
+                        color: _kitGold,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
                       card.title,
                       style: _kitText(
-                        fontSize: 20,
+                        fontSize: 22,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -440,11 +811,40 @@ class _PrepCardPanel extends StatelessWidget {
                   ],
                 ),
               ),
-              Image.asset(
-                'assets/images/courtly_score.png',
+              Container(
                 width: 58,
                 height: 58,
-                fit: BoxFit.contain,
+                decoration: BoxDecoration(
+                  color: _kitGold.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Image.asset(
+                  'assets/images/courtly_score.png',
+                  width: 52,
+                  height: 52,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _PrepActionButton(
+                  icon: CupertinoIcons.arrow_2_circlepath,
+                  label: 'Use setup',
+                  onPressed: onApplySetup,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _PrepActionButton(
+                  icon: CupertinoIcons.trash,
+                  label: 'Delete',
+                  onPressed: onDelete,
+                  destructive: true,
+                ),
               ),
             ],
           ),
@@ -475,15 +875,69 @@ class _PrepCardPanel extends StatelessWidget {
   }
 }
 
+class _PrepActionButton extends StatelessWidget {
+  const _PrepActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = destructive ? _kitPink : _kitGold;
+
+    return CupertinoButton(
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      child: Container(
+        height: 40,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: destructive ? 0.13 : 0.16),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.24)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 16),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _kitText(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SavedCardsPanel extends StatelessWidget {
   const _SavedCardsPanel({
     required this.cards,
     required this.onOpen,
+    required this.onDelete,
     required this.onClear,
   });
 
   final List<_CourtKitCard> cards;
   final ValueChanged<_CourtKitCard> onOpen;
+  final ValueChanged<_CourtKitCard> onDelete;
   final VoidCallback? onClear;
 
   @override
@@ -496,7 +950,7 @@ class _SavedCardsPanel extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Saved cards',
+                  'Saved plans',
                   style: _kitText(fontSize: 17, fontWeight: FontWeight.w900),
                 ),
               ),
@@ -519,7 +973,7 @@ class _SavedCardsPanel extends StatelessWidget {
           const SizedBox(height: 10),
           if (cards.isEmpty)
             Text(
-              'No prep cards yet. Build one before a court session and it will stay here.',
+              'No court plans yet. Generate one before a session and it will stay here.',
               style: _kitText(
                 color: _kitWhite.withValues(alpha: 0.6),
                 fontSize: 12,
@@ -532,6 +986,7 @@ class _SavedCardsPanel extends StatelessWidget {
               _SavedCardTile(
                 card: cards[index],
                 onOpen: () => onOpen(cards[index]),
+                onDelete: () => onDelete(cards[index]),
               ),
               if (index != cards.length - 1) const SizedBox(height: 9),
             ],
@@ -542,42 +997,52 @@ class _SavedCardsPanel extends StatelessWidget {
 }
 
 class _SavedCardTile extends StatelessWidget {
-  const _SavedCardTile({required this.card, required this.onOpen});
+  const _SavedCardTile({
+    required this.card,
+    required this.onOpen,
+    required this.onDelete,
+  });
 
   final _CourtKitCard card;
   final VoidCallback onOpen;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoButton(
-      minimumSize: Size.zero,
-      padding: EdgeInsets.zero,
-      onPressed: onOpen,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-        decoration: BoxDecoration(
-          color: _kitWhite.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: _kitWhite.withValues(alpha: 0.08)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: _kitWhite.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kitWhite.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        children: [
+          CupertinoButton(
+            minimumSize: Size.zero,
+            padding: EdgeInsets.zero,
+            onPressed: onOpen,
+            child: Container(
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
-                color: _kitPink.withValues(alpha: 0.18),
-                shape: BoxShape.circle,
+                color: _kitGold.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
                 CupertinoIcons.doc_text_fill,
-                color: _kitPink,
+                color: _kitGold,
                 size: 18,
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: CupertinoButton(
+              minimumSize: Size.zero,
+              padding: EdgeInsets.zero,
+              onPressed: onOpen,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -589,7 +1054,9 @@ class _SavedCardTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    card.createdLabel,
+                    '${card.subtitle} • ${card.createdLabel}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: _kitText(
                       color: _kitWhite.withValues(alpha: 0.55),
                       fontSize: 11,
@@ -599,13 +1066,27 @@ class _SavedCardTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
-              CupertinoIcons.chevron_right,
-              color: _kitWhite,
-              size: 16,
+          ),
+          const SizedBox(width: 8),
+          CupertinoButton(
+            minimumSize: Size.zero,
+            padding: EdgeInsets.zero,
+            onPressed: onDelete,
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: _kitPink.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                CupertinoIcons.trash,
+                color: _kitPink,
+                size: 15,
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -673,12 +1154,16 @@ class _PrepCardRow extends StatelessWidget {
 class _OptionGroup<T> extends StatelessWidget {
   const _OptionGroup({
     required this.title,
+    required this.detail,
+    required this.icon,
     required this.selected,
     required this.options,
     required this.onSelected,
   });
 
   final String title;
+  final String detail;
+  final IconData icon;
   final T selected;
   final List<_KitOption<T>> options;
   final ValueChanged<T> onSelected;
@@ -688,8 +1173,42 @@ class _OptionGroup<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: _kitText(fontSize: 13, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 9),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: _kitWhite.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, color: _kitGold, size: 15),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: _kitText(fontSize: 13, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    detail,
+                    style: _kitText(
+                      color: _kitWhite.withValues(alpha: 0.48),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -785,6 +1304,10 @@ class _KitOption<T> {
 class _CourtKitCard {
   const _CourtKitCard({
     required this.id,
+    required this.focusKey,
+    required this.lengthKey,
+    required this.surfaceKey,
+    required this.partnerKey,
     required this.title,
     required this.subtitle,
     required this.warmup,
@@ -795,6 +1318,10 @@ class _CourtKitCard {
   });
 
   final String id;
+  final String focusKey;
+  final String lengthKey;
+  final String surfaceKey;
+  final String partnerKey;
   final String title;
   final String subtitle;
   final String warmup;
@@ -820,6 +1347,10 @@ class _CourtKitCard {
   }) {
     return _CourtKitCard(
       id: 'kit-${createdAt.microsecondsSinceEpoch}',
+      focusKey: focus.name,
+      lengthKey: length.name,
+      surfaceKey: surface.name,
+      partnerKey: partner.name,
       title: '${focus.label} / ${length.label}',
       subtitle: '${surface.label} court with ${partner.label.toLowerCase()}',
       warmup: _warmupFor(focus, length),
@@ -833,6 +1364,10 @@ class _CourtKitCard {
   Map<String, Object?> toJson() {
     return {
       'id': id,
+      'focusKey': focusKey,
+      'lengthKey': lengthKey,
+      'surfaceKey': surfaceKey,
+      'partnerKey': partnerKey,
       'title': title,
       'subtitle': subtitle,
       'warmup': warmup,
@@ -852,6 +1387,10 @@ class _CourtKitCard {
       final json = decoded.cast<String, Object?>();
       return _CourtKitCard(
         id: json['id'] as String? ?? '',
+        focusKey: json['focusKey'] as String? ?? '',
+        lengthKey: json['lengthKey'] as String? ?? '',
+        surfaceKey: json['surfaceKey'] as String? ?? '',
+        partnerKey: json['partnerKey'] as String? ?? '',
         title: json['title'] as String? ?? '',
         subtitle: json['subtitle'] as String? ?? '',
         warmup: json['warmup'] as String? ?? '',
@@ -877,6 +1416,16 @@ enum _KitFocus {
   const _KitFocus(this.label);
 
   final String label;
+
+  static _KitFocus? fromKey(String key) {
+    final cue = key.toLowerCase();
+    for (final value in _KitFocus.values) {
+      if (value.name == key || cue.contains(value.label.toLowerCase())) {
+        return value;
+      }
+    }
+    return null;
+  }
 }
 
 enum _KitLength {
@@ -887,6 +1436,16 @@ enum _KitLength {
   const _KitLength(this.label);
 
   final String label;
+
+  static _KitLength? fromKey(String key) {
+    final cue = key.toLowerCase();
+    for (final value in _KitLength.values) {
+      if (value.name == key || cue.contains(value.label.toLowerCase())) {
+        return value;
+      }
+    }
+    return null;
+  }
 }
 
 enum _KitSurface {
@@ -898,6 +1457,16 @@ enum _KitSurface {
   const _KitSurface(this.label);
 
   final String label;
+
+  static _KitSurface? fromKey(String key) {
+    final cue = key.toLowerCase();
+    for (final value in _KitSurface.values) {
+      if (value.name == key || cue.contains(value.label.toLowerCase())) {
+        return value;
+      }
+    }
+    return null;
+  }
 }
 
 enum _KitPartner {
@@ -909,6 +1478,25 @@ enum _KitPartner {
   const _KitPartner(this.label);
 
   final String label;
+
+  String get shortLabel {
+    return switch (this) {
+      _KitPartner.solo => 'Solo',
+      _KitPartner.mutual => 'Friend',
+      _KitPartner.newPartner => 'New',
+      _KitPartner.clubVisitor => 'Visitor',
+    };
+  }
+
+  static _KitPartner? fromKey(String key) {
+    final cue = key.toLowerCase();
+    for (final value in _KitPartner.values) {
+      if (value.name == key || cue.contains(value.label.toLowerCase())) {
+        return value;
+      }
+    }
+    return null;
+  }
 }
 
 String _warmupFor(_KitFocus focus, _KitLength length) {

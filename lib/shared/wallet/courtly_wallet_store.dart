@@ -144,7 +144,7 @@ class CourtlyWalletStore {
       title: 'Court Kit prep card',
       cost: 18,
       description:
-          'Build and save a tailored warmup, drill, and courtesy plan.',
+          'Generate and save a tailored warmup, drill, courtesy, and gear plan.',
     ),
     CourtlyCoinSpendRule(
       feature: CourtlyCoinFeature.practiceReflection,
@@ -380,8 +380,9 @@ class CourtlyWalletStore {
 
   Future<bool> _markPurchaseProcessed(PurchaseDetails purchase) async {
     final preferences = await SharedPreferences.getInstance();
-    final processed =
-        preferences.getStringList(_processedPurchasesKey) ?? <String>[];
+    final processed = List<String>.of(
+      preferences.getStringList(_processedPurchasesKey) ?? const <String>[],
+    );
     final purchaseKey = _purchaseKey(purchase);
     if (processed.contains(purchaseKey)) {
       return false;

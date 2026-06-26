@@ -340,7 +340,7 @@ class _CourtsideRalliesViewState extends State<CourtsideRalliesView> {
 
   Future<void> _loadLocalState() async {
     final store = CourtlySocialStore.instance;
-    await store.ensureClubMessagesSeeded();
+    await store.prepareMessageCenter();
     final blocked = await store.blockedPlayerHandles();
     final reported = await store.reportedContentIds();
     final systemMessages = await store.loadSystemMessages();

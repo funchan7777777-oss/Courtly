@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:math';
-
 import 'package:courtly/shared/social/courtly_content_safety.dart';
 import 'package:courtly/shared/social/courtly_roster_book.dart';
 import 'package:flutter/foundation.dart';
@@ -208,8 +206,9 @@ class CourtlySocialStore {
   static const _rallyMessagePlayersKey = 'courtly_rally_message_players';
   static const _messagePrefix = 'courtly_messages_for_';
   static const _systemMessagesKey = 'courtly_system_messages';
-  static const _messageCenterSeededKey = 'courtly_message_center_seeded';
-  static const _loginFollowerBoostKey = 'courtly_login_follower_boost_seeded';
+  static const _legacyMessageCenterSeededKey = 'courtly_message_center_seeded';
+  static const _legacyLoginFollowerBoostKey =
+      'courtly_login_follower_boost_seeded';
   static const _publishedMomentsKey = 'courtly_published_court_moments';
   static const _publishedClipsKey = 'courtly_published_training_clips';
   static const _reportPrefix = 'courtly_report_detail_';
@@ -287,7 +286,7 @@ class CourtlySocialStore {
     String? summary,
   }) async {
     final preferences = await SharedPreferences.getInstance();
-    final ids = preferences.getStringList(_reportedContentKey) ?? <String>[];
+    final ids = _readStringList(preferences, _reportedContentKey);
     if (!ids.contains(contentId)) {
       ids.add(contentId);
       await preferences.setStringList(_reportedContentKey, ids);
@@ -497,63 +496,13 @@ class CourtlySocialStore {
     return following.where(followers.contains).toList(growable: false)..sort();
   }
 
-  Future<void> ensureLoginFollowerBoost() async {
+  Future<void> removeStarterSeedContent() async {
     final preferences = await SharedPreferences.getInstance();
-    if (preferences.getBool(_loginFollowerBoostKey) == true) {
-      return;
+    final changed = await _removeSyntheticStarterContent(preferences);
+    if (changed) {
+      _notifyRelationshipChanged();
+      _notifyMessageCenterChanged();
     }
-
-    final random = Random(DateTime.now().microsecondsSinceEpoch);
-    final followers = _readStringList(preferences, _courtCircleFollowersKey);
-    final blocked = _readStringList(preferences, _blockedPlayersKey);
-    final candidates = CourtlyRosterBook.featuredCards(20)
-        .where(
-          (profile) =>
-              !followers.contains(profile.playerHandle) &&
-              !blocked.contains(profile.playerHandle),
-        )
-        .toList(growable: false);
-    if (candidates.isEmpty) {
-      await preferences.setBool(_loginFollowerBoostKey, true);
-      return;
-    }
-
-    final shuffledCandidates = List.of(candidates)..shuffle(random);
-    final followerCount = min(shuffledCandidates.length, 2 + random.nextInt(2));
-    final selectedProfiles = shuffledCandidates.take(followerCount).toList();
-    final now = DateTime.now();
-    final newMessages = <CourtlySystemMessage>[];
-
-    for (final profile in selectedProfiles) {
-      followers.add(profile.playerHandle);
-      newMessages.add(
-        CourtlySystemMessage(
-          id: 'login-follower-${profile.playerHandle}-${now.microsecondsSinceEpoch}',
-          kind: 'follow',
-          title: 'Starter court circle',
-          body:
-              '${profile.courtsideName} is a suggested local tennis profile. Follow only when you want to open a mutual chat.',
-          timeLabel: _formatTime(now),
-          playerHandle: profile.playerHandle,
-          targetId: 'player:${profile.playerHandle}',
-        ),
-      );
-    }
-
-    await _writeStringList(preferences, _courtCircleFollowersKey, followers);
-    final existingMessages = await loadSystemMessages();
-    await preferences.setString(
-      _systemMessagesKey,
-      jsonEncode(
-        [
-          ...newMessages,
-          ...existingMessages,
-        ].take(60).map((message) => message.toJson()).toList(),
-      ),
-    );
-    await preferences.setBool(_loginFollowerBoostKey, true);
-    _notifyRelationshipChanged();
-    _notifyMessageCenterChanged();
   }
 
   Future<List<CourtlySystemMessage>> loadSystemMessages() async {
@@ -814,52 +763,139 @@ class CourtlySocialStore {
     _notifyPublishedContentChanged();
   }
 
-  Future<void> ensureClubMessagesSeeded() async {
+  Future<void> prepareMessageCenter() async {
     final preferences = await SharedPreferences.getInstance();
-    await ensureLoginFollowerBoost();
-    if (preferences.getBool(_messageCenterSeededKey) == true) {
-      return;
+    final changed = await _removeSyntheticStarterContent(preferences);
+    if (changed) {
+      _notifyRelationshipChanged();
+      _notifyMessageCenterChanged();
+    }
+  }
+
+  Future<bool> _removeSyntheticStarterContent(
+    SharedPreferences preferences,
+  ) async {
+    var changed = false;
+    final syntheticFollowerHandles = <String>{};
+    final rawMessages = preferences.getString(_systemMessagesKey);
+
+    if (rawMessages != null && rawMessages.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawMessages);
+        if (decoded is List) {
+          final keptMessages = <CourtlySystemMessage>[];
+          for (final entry in decoded.whereType<Map>()) {
+            final message = CourtlySystemMessage.fromJson(entry.cast());
+            if (message.id.isEmpty) {
+              continue;
+            }
+            if (_isSyntheticStarterMessage(message)) {
+              final playerHandle = message.playerHandle?.trim();
+              if (playerHandle != null && playerHandle.isNotEmpty) {
+                syntheticFollowerHandles.add(playerHandle);
+              }
+              changed = true;
+              continue;
+            }
+            keptMessages.add(message);
+          }
+
+          if (changed) {
+            if (keptMessages.isEmpty) {
+              await preferences.remove(_systemMessagesKey);
+            } else {
+              await preferences.setString(
+                _systemMessagesKey,
+                jsonEncode(
+                  keptMessages.map((message) => message.toJson()).toList(),
+                ),
+              );
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (syntheticFollowerHandles.isNotEmpty) {
+      final followers = _readStringList(preferences, _courtCircleFollowersKey);
+      final nextFollowers = followers
+          .where(
+            (playerHandle) => !syntheticFollowerHandles.contains(playerHandle),
+          )
+          .toList();
+      if (nextFollowers.length != followers.length) {
+        await _writeStringList(
+          preferences,
+          _courtCircleFollowersKey,
+          nextFollowers,
+        );
+        changed = true;
+      }
     }
 
     final messagePlayers = _readStringList(
       preferences,
       _rallyMessagePlayersKey,
     );
-    if (!messagePlayers.contains('mira-vale')) {
-      messagePlayers.add('mira-vale');
+    final seededThreadKey = '${_messagePrefix}mira-vale';
+    final rawMiraMessages = preferences.getString(seededThreadKey);
+    if (rawMiraMessages != null && rawMiraMessages.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawMiraMessages);
+        if (decoded is List) {
+          final keptMessages = decoded
+              .whereType<Map>()
+              .map((entry) => CourtlyStoredMessage.fromJson(entry.cast()))
+              .where(
+                (message) =>
+                    message.noteId.isNotEmpty &&
+                    !message.noteId.startsWith('seed-rally-mira-'),
+              )
+              .toList(growable: false);
+          if (keptMessages.length != decoded.whereType<Map>().length) {
+            if (keptMessages.isEmpty) {
+              await preferences.remove(seededThreadKey);
+              messagePlayers.remove('mira-vale');
+            } else {
+              await preferences.setString(
+                seededThreadKey,
+                jsonEncode(
+                  keptMessages.map((message) => message.toJson()).toList(),
+                ),
+              );
+            }
+            changed = true;
+          }
+        }
+      } catch (_) {}
+    } else if (messagePlayers.remove('mira-vale')) {
+      changed = true;
     }
-    await _writeStringList(
-      preferences,
-      _rallyMessagePlayersKey,
-      messagePlayers,
-    );
-    if ((await loadMessages('mira-vale')).isEmpty) {
-      await preferences.setString(
-        '${_messagePrefix}mira-vale',
-        jsonEncode(
-          const [
-            CourtlyStoredMessage(
-              noteId: 'seed-rally-mira-1',
-              speakerName: 'Mira Vale',
-              rallyLine:
-                  'Starter rally: want to plan a dusk hit after practice?',
-              sentAtLabel: '08:36',
-              isFromCurrentPlayer: false,
-            ),
-            CourtlyStoredMessage(
-              noteId: 'seed-rally-mira-2',
-              speakerName: 'You',
-              rallyLine: 'Yes. Send me the court slot and I will confirm.',
-              sentAtLabel: '08:38',
-              isFromCurrentPlayer: true,
-            ),
-          ].map((message) => message.toJson()).toList(),
-        ),
+
+    if (changed) {
+      await _writeStringList(
+        preferences,
+        _rallyMessagePlayersKey,
+        messagePlayers,
       );
     }
-    await preferences.setBool(_messageCenterSeededKey, true);
-    _notifyRelationshipChanged();
-    _notifyMessageCenterChanged();
+
+    if (preferences.containsKey(_legacyLoginFollowerBoostKey)) {
+      await preferences.remove(_legacyLoginFollowerBoostKey);
+      changed = true;
+    }
+    if (preferences.containsKey(_legacyMessageCenterSeededKey)) {
+      await preferences.remove(_legacyMessageCenterSeededKey);
+      changed = true;
+    }
+
+    return changed;
+  }
+
+  bool _isSyntheticStarterMessage(CourtlySystemMessage message) {
+    return message.id.startsWith('login-follower-') ||
+        message.title == 'Starter court circle' ||
+        message.body.contains('suggested local tennis profile');
   }
 
   Future<Set<String>> _loadStringSet(String key, {String? legacyKey}) async {
@@ -875,7 +911,7 @@ class CourtlySocialStore {
     final values = <String>{
       ...?preferences.getStringList(key),
       if (legacyKey != null) ...?preferences.getStringList(legacyKey),
-    }.where((value) => value.trim().isNotEmpty).toList(growable: false);
+    }.where((value) => value.trim().isNotEmpty).toList();
     return values..sort();
   }
 

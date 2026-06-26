@@ -35,7 +35,7 @@ class _FirstRallyGateState extends State<FirstRallyGate> {
     }
 
     if (activeSession != null) {
-      unawaited(CourtlySocialStore.instance.ensureLoginFollowerBoost());
+      unawaited(CourtlySocialStore.instance.removeStarterSeedContent());
     }
 
     final Widget nextPage = activeSession != null
