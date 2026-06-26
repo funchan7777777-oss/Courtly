@@ -354,55 +354,119 @@ class _KitHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 14),
-          SizedBox(
-            width: 88,
-            height: 96,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 78,
-                  height: 78,
-                  decoration: BoxDecoration(
-                    color: _kitGold.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: _kitGold.withValues(alpha: 0.28)),
+          const _KitPlanBadge(),
+        ],
+      ),
+    );
+  }
+}
+
+class _KitPlanBadge extends StatelessWidget {
+  const _KitPlanBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 86,
+      height: 96,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: _kitPurpleDeep.withValues(alpha: 0.34),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _kitWhite.withValues(alpha: 0.13)),
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: _kitWhite.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: _kitGold.withValues(alpha: 0.26)),
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    top: 15,
+                    child: _KitBadgeLine(widthFactor: 0.82),
                   ),
-                ),
-                Image.asset(
-                  'assets/images/courtly_coach.png',
-                  width: 76,
-                  height: 76,
-                  fit: BoxFit.contain,
-                ),
-                Positioned(
-                  right: 2,
-                  bottom: 4,
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    top: 30,
+                    child: _KitBadgeLine(widthFactor: 0.58),
+                  ),
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    top: 45,
+                    child: _KitBadgeLine(widthFactor: 0.72),
+                  ),
+                  const Align(
+                    alignment: Alignment.center,
+                    child: Icon(
+                      CupertinoIcons.sportscourt_fill,
                       color: _kitGold,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: _kitGold.withValues(alpha: 0.32),
-                          blurRadius: 12,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
+                      size: 26,
                     ),
-                    child: const Icon(
-                      CupertinoIcons.check_mark,
-                      color: _kitPurpleDeep,
-                      size: 17,
-                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 22,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: _kitGold,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  CupertinoIcons.check_mark,
+                  color: _kitPurpleDeep,
+                  size: 13,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Plan',
+                  style: _kitText(
+                    color: _kitPurpleDeep,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _KitBadgeLine extends StatelessWidget {
+  const _KitBadgeLine({required this.widthFactor});
+
+  final double widthFactor;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      alignment: Alignment.centerLeft,
+      widthFactor: widthFactor,
+      child: Container(
+        height: 4,
+        decoration: BoxDecoration(
+          color: _kitWhite.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(999),
+        ),
       ),
     );
   }

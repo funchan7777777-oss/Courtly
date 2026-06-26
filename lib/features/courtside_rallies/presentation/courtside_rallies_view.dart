@@ -226,19 +226,10 @@ class _CourtsideRalliesViewState extends State<CourtsideRalliesView> {
               ),
             ),
             if (visibleMessagesCount == 0)
-              const SliverFillRemaining(
-                hasScrollBody: false,
+              const SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(22, 0, 22, 124),
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: _InlineInfoCard(
-                      icon: CupertinoIcons.chat_bubble_2_fill,
-                      title: 'No rally notes yet',
-                      rallyLine:
-                          'System updates and chat history will stay here after they happen.',
-                    ),
-                  ),
+                  padding: EdgeInsets.fromLTRB(22, 0, 22, 132),
+                  child: _MessageEmptyPanel(),
                 ),
               )
             else
@@ -2388,6 +2379,117 @@ class _InlineInfoCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MessageEmptyPanel extends StatelessWidget {
+  const _MessageEmptyPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _chatPanel.withValues(alpha: 0.86),
+            _chatPurpleDeep.withValues(alpha: 0.58),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _chatWhite.withValues(alpha: 0.09)),
+        boxShadow: [
+          BoxShadow(
+            color: _chatPurpleDeep.withValues(alpha: 0.24),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: _chatPink.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _chatPinkSoft.withValues(alpha: 0.22)),
+            ),
+            child: const Icon(
+              CupertinoIcons.chat_bubble_2_fill,
+              color: _chatPinkSoft,
+              size: 25,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'No rally notes yet',
+                  style: _clubTextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'New followers, safety updates, and real chat history will appear here.',
+                  style: _clubTextStyle(
+                    color: _chatWhite.withValues(alpha: 0.62),
+                    fontSize: 12,
+                    height: 1.32,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: const [
+                    _EmptyMessagePill(label: 'Followers'),
+                    SizedBox(width: 8),
+                    _EmptyMessagePill(label: 'Chats'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyMessagePill extends StatelessWidget {
+  const _EmptyMessagePill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      decoration: BoxDecoration(
+        color: _chatWhite.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _chatWhite.withValues(alpha: 0.08)),
+      ),
+      child: Center(
+        child: Text(
+          label,
+          style: _clubTextStyle(
+            color: _chatWhite.withValues(alpha: 0.62),
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
       ),
     );
   }

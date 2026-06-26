@@ -134,14 +134,14 @@ class RallySessionVault {
     if (avatarPath != null && avatarPath.trim().isNotEmpty) {
       await preferences.setString(_avatarImagePathKey, avatarPath);
     }
-    await CourtlySocialStore.instance.removeStarterSeedContent();
+    await CourtlySocialStore.instance.ensureOpeningFollowerNotices();
   }
 
   Future<void> reactivateLocalSession() async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setBool(_activeEntryKey, true);
     await preferences.setString(_entryMethodKey, 'local');
-    await CourtlySocialStore.instance.removeStarterSeedContent();
+    await CourtlySocialStore.instance.ensureOpeningFollowerNotices();
   }
 
   Future<void> activateCredentialEntry(RallyCredentialDraft draft) async {
@@ -182,7 +182,7 @@ class RallySessionVault {
     );
     await preferences.setBool(_activeEntryKey, true);
     await preferences.setString(_entryMethodKey, 'local');
-    await CourtlySocialStore.instance.removeStarterSeedContent();
+    await CourtlySocialStore.instance.ensureOpeningFollowerNotices();
   }
 
   Future<void> activateAppleEntry({required String displayNameSignal}) async {

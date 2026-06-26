@@ -170,7 +170,7 @@ class _MyCourtViewState extends State<MyCourtView> {
 
   Future<void> _loadRelationships() async {
     final store = CourtlySocialStore.instance;
-    await store.removeStarterSeedContent();
+    await store.ensureOpeningFollowerNotices();
     final blockedIds = await store.blockedPlayerHandles();
     final followerIds = await store.followerPlayerHandles();
     final followingIds = await store.followingPlayerHandles();

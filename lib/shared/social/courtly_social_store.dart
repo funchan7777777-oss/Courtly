@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:math';
+
 import 'package:courtly/shared/social/courtly_content_safety.dart';
 import 'package:courtly/shared/social/courtly_roster_book.dart';
 import 'package:flutter/foundation.dart';
@@ -209,6 +211,8 @@ class CourtlySocialStore {
   static const _legacyMessageCenterSeededKey = 'courtly_message_center_seeded';
   static const _legacyLoginFollowerBoostKey =
       'courtly_login_follower_boost_seeded';
+  static const _openingFollowerNoticesKey =
+      'courtly_opening_follower_notices_v2';
   static const _publishedMomentsKey = 'courtly_published_court_moments';
   static const _publishedClipsKey = 'courtly_published_training_clips';
   static const _reportPrefix = 'courtly_report_detail_';
@@ -505,6 +509,70 @@ class CourtlySocialStore {
     }
   }
 
+  Future<void> ensureOpeningFollowerNotices() async {
+    final preferences = await SharedPreferences.getInstance();
+    final cleaned = await _removeSyntheticStarterContent(preferences);
+    if (preferences.getBool(_openingFollowerNoticesKey) == true) {
+      if (cleaned) {
+        _notifyRelationshipChanged();
+        _notifyMessageCenterChanged();
+      }
+      return;
+    }
+
+    final random = Random(DateTime.now().microsecondsSinceEpoch);
+    final followers = _readStringList(preferences, _courtCircleFollowersKey);
+    final blocked = _readStringList(preferences, _blockedPlayersKey).toSet();
+    final candidates = CourtlyRosterBook.featuredCards(20)
+        .where(
+          (profile) =>
+              !followers.contains(profile.playerHandle) &&
+              !blocked.contains(profile.playerHandle),
+        )
+        .toList();
+    candidates.shuffle(random);
+
+    final followerCount = min(candidates.length, 2 + random.nextInt(2));
+    final selectedProfiles = candidates.take(followerCount).toList();
+    final now = DateTime.now();
+    final messages = await loadSystemMessages();
+    final followerMessages = <CourtlySystemMessage>[];
+
+    for (final profile in selectedProfiles) {
+      followers.add(profile.playerHandle);
+      followerMessages.add(
+        CourtlySystemMessage(
+          id: 'opening-follower-${profile.playerHandle}-${now.microsecondsSinceEpoch}',
+          kind: 'follow',
+          title: 'New court follower',
+          body:
+              '${profile.courtsideName} followed your court profile. Follow back to unlock private chat.',
+          timeLabel: _formatTime(now),
+          playerHandle: profile.playerHandle,
+          targetId: 'player:${profile.playerHandle}',
+        ),
+      );
+    }
+
+    await _writeStringList(preferences, _courtCircleFollowersKey, followers);
+    if (followerMessages.isNotEmpty) {
+      await preferences.setString(
+        _systemMessagesKey,
+        jsonEncode(
+          [
+            ...followerMessages,
+            ...messages.where(
+              (message) => !message.id.startsWith('opening-follower-'),
+            ),
+          ].take(60).map((message) => message.toJson()).toList(),
+        ),
+      );
+    }
+    await preferences.setBool(_openingFollowerNoticesKey, true);
+    _notifyRelationshipChanged();
+    _notifyMessageCenterChanged();
+  }
+
   Future<List<CourtlySystemMessage>> loadSystemMessages() async {
     final preferences = await SharedPreferences.getInstance();
     final raw = preferences.getString(_systemMessagesKey);
@@ -764,12 +832,7 @@ class CourtlySocialStore {
   }
 
   Future<void> prepareMessageCenter() async {
-    final preferences = await SharedPreferences.getInstance();
-    final changed = await _removeSyntheticStarterContent(preferences);
-    if (changed) {
-      _notifyRelationshipChanged();
-      _notifyMessageCenterChanged();
-    }
+    await ensureOpeningFollowerNotices();
   }
 
   Future<bool> _removeSyntheticStarterContent(
