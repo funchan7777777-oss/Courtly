@@ -5,7 +5,6 @@ import 'package:courtly/features/courtside_rallies/presentation/courtside_rallie
 import 'package:courtly/features/court_clips/data/court_clip_program.dart';
 import 'package:courtly/features/court_moments/data/court_moment_chronicle.dart';
 import 'package:courtly/features/court_moments/domain/court_moment_entry.dart';
-import 'package:courtly/shared/data/courtly_media_assets.dart';
 import 'package:courtly/shared/presentation/courtly_profile_image.dart';
 import 'package:courtly/shared/presentation/courtly_safe_layout.dart';
 import 'package:courtly/shared/social/courtly_content_safety.dart';
@@ -357,14 +356,6 @@ class _CourtMomentsViewState extends State<CourtMomentsView> {
       title: 'Report sent',
       message: 'The report was saved locally and this item is now hidden.',
     );
-  }
-
-  void _replaceMoment(String momentId, CourtMomentEntry moment) {
-    final index = _moments.indexWhere((entry) => entry.momentId == momentId);
-    if (index == -1) {
-      return;
-    }
-    _replaceMomentAt(index, moment);
   }
 
   void _replaceMomentAt(int index, CourtMomentEntry moment) {
@@ -2946,7 +2937,7 @@ class _PodiumPerson extends StatelessWidget {
                         ),
                         const SizedBox(height: 5),
                         Text(
-                          '${entry.rallyRhythmDays}',
+                          '${entry.rallyStreakDays}',
                           style: _momentText(context).copyWith(
                             color: textColor,
                             fontSize: isWinner ? 18 : 15,
@@ -3110,7 +3101,7 @@ class _RankingListRow extends StatelessWidget {
             SizedBox(
               width: 58,
               child: Text(
-                '${entry.rallyRhythmDays}',
+                '${entry.rallyStreakDays}',
                 textAlign: TextAlign.right,
                 style: _momentText(context).copyWith(
                   color: CupertinoColors.white.withValues(alpha: 0.58),

@@ -113,10 +113,6 @@ class CourtsideRalliesView extends StatefulWidget {
 }
 
 class _CourtsideRalliesViewState extends State<CourtsideRalliesView> {
-  List<CourtsideCircleInvitation> _requests =
-      List<CourtsideCircleInvitation>.of(
-        CourtsideThreadSeed.openingCircleInvitations,
-      );
   List<CourtsideRallyThread> _conversations = List<CourtsideRallyThread>.of(
     CourtsideThreadSeed.openingRallyThreads,
   );
@@ -394,9 +390,6 @@ class _CourtsideRalliesViewState extends State<CourtsideRalliesView> {
           .map(CourtlyRosterBook.byHandle)
           .toList(growable: false);
       _conversations = conversations;
-      _requests = _requests
-          .where((request) => !blocked.contains(request.playerHandle))
-          .toList();
     });
   }
 
@@ -405,37 +398,6 @@ class _CourtsideRalliesViewState extends State<CourtsideRalliesView> {
       return;
     }
     unawaited(_loadLocalState());
-  }
-
-  void _toggleRequestFollow(String requestId) {
-    final index = _requests.indexWhere(
-      (request) => request.invitationId == requestId,
-    );
-    if (index == -1) {
-      return;
-    }
-
-    setState(() {
-      final next = List<CourtsideCircleInvitation>.of(_requests);
-      final request = next[index];
-      next[index] = request.copyWith(isInCourtCircle: !request.isInCourtCircle);
-      _requests = next;
-    });
-  }
-
-  Future<void> _openRequests() async {
-    final nextRequests = await Navigator.of(context)
-        .push<List<CourtsideCircleInvitation>>(
-          CupertinoPageRoute<List<CourtsideCircleInvitation>>(
-            builder: (_) => CourtsideCircleInvitationsPage(requests: _requests),
-          ),
-        );
-
-    if (nextRequests == null || !mounted) {
-      return;
-    }
-
-    setState(() => _requests = nextRequests);
   }
 
   Future<void> _openMutualFriends() async {
@@ -474,17 +436,6 @@ class _CourtsideRalliesViewState extends State<CourtsideRalliesView> {
     if (mounted) {
       await _loadLocalState();
     }
-  }
-
-  void _openRequestDetail(CourtsideCircleInvitation request) {
-    Navigator.of(context).push(
-      CupertinoPageRoute<void>(
-        builder: (_) => CourtsideInvitationProfilePage(
-          request: request,
-          onFollowChanged: () => _toggleRequestFollow(request.invitationId),
-        ),
-      ),
-    );
   }
 
   Future<void> _openChat(CourtsideRallyThread conversation) async {
@@ -789,134 +740,6 @@ class _ClubTextSectionHeader extends StatelessWidget {
   }
 }
 
-class _ClubSectionHeader extends StatelessWidget {
-  const _ClubSectionHeader({
-    required this.artAsset,
-    required this.artWidth,
-    required this.artHeight,
-    this.trailing,
-    this.onTrailingPressed,
-  });
-
-  final String artAsset;
-  final double artWidth;
-  final double artHeight;
-  final String? trailing;
-  final VoidCallback? onTrailingPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final trailingText = trailing;
-
-    return Row(
-      children: [
-        Image.asset(
-          artAsset,
-          width: artWidth,
-          height: artHeight,
-          fit: BoxFit.contain,
-          alignment: Alignment.centerLeft,
-        ),
-        const Spacer(),
-        if (trailingText != null)
-          CupertinoButton(
-            minimumSize: Size.zero,
-            padding: EdgeInsets.zero,
-            onPressed: onTrailingPressed,
-            child: Row(
-              children: [
-                Text(
-                  trailingText,
-                  style: _clubTextStyle(
-                    color: _chatWhite.withValues(alpha: 0.52),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (onTrailingPressed != null) ...[
-                  const SizedBox(width: 2),
-                  Icon(
-                    CupertinoIcons.chevron_right,
-                    color: _chatWhite.withValues(alpha: 0.52),
-                    size: 13,
-                  ),
-                ],
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _FriendRequestCard extends StatelessWidget {
-  const _FriendRequestCard({
-    required this.request,
-    required this.onPressed,
-    required this.onFollow,
-  });
-
-  final CourtsideCircleInvitation request;
-  final VoidCallback onPressed;
-  final VoidCallback onFollow;
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoButton(
-      minimumSize: Size.zero,
-      padding: EdgeInsets.zero,
-      onPressed: onPressed,
-      child: Container(
-        width: 120,
-        decoration: BoxDecoration(
-          color: _chatPanel.withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x33000000),
-              blurRadius: 12,
-              offset: Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
-          child: Column(
-            children: [
-              _ClubAvatar(assetPath: request.playerPortraitAsset, size: 52),
-              const SizedBox(height: 9),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Flexible(
-                    child: Text(
-                      request.courtsideName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _clubTextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  _AgePill(ageBandLabel: request.ageBandLabel, compact: true),
-                ],
-              ),
-              const Spacer(),
-              _FollowButton(
-                followed: request.isInCourtCircle,
-                onPressed: onFollow,
-                compact: true,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _MutualFriendCard extends StatelessWidget {
   const _MutualFriendCard({
     required this.profile,
@@ -1061,7 +884,7 @@ class _SystemMessageTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 7),
                   Text(
-                    rallyNote.rallyLine,
+                    rallyNote.body,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: _clubTextStyle(
@@ -1080,7 +903,7 @@ class _SystemMessageTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  rallyNote.sentAtLabel,
+                  rallyNote.timeLabel,
                   style: _clubTextStyle(
                     color: _chatWhite.withValues(alpha: 0.38),
                     fontSize: 11,
@@ -1392,6 +1215,9 @@ class _CourtsideRallyThreadPageState extends State<CourtsideRallyThreadPage> {
     if (!await _ensureMutualAccess('Messages require mutual follow')) {
       return;
     }
+    if (!mounted) {
+      return;
+    }
 
     final safety = CourtlyContentSafety.validateText(
       rallyLine,
@@ -1419,7 +1245,7 @@ class _CourtsideRallyThreadPageState extends State<CourtsideRallyThreadPage> {
     });
     await CourtlySocialStore.instance.saveMessages(
       playerHandle: _conversation.playerHandle,
-      rallyNotes: _conversation.rallyNotes.map(_messageToStored).toList(),
+      messages: _conversation.rallyNotes.map(_messageToStored).toList(),
     );
     _messageController.clear();
 
@@ -1850,7 +1676,7 @@ class _ClubVideoCallPageState extends State<ClubVideoCallPage> {
   bool _speakerOn = true;
   bool _muted = false;
   bool _cameraOn = true;
-  late CameraController _cameraController = widget.cameraController;
+  late final CameraController _cameraController = widget.cameraController;
 
   @override
   void dispose() {
@@ -1947,7 +1773,7 @@ class _ClubVideoCallPageState extends State<ClubVideoCallPage> {
 class _VideoCallHeader extends StatelessWidget {
   const _VideoCallHeader({required this.courtsideName, required this.onBack});
 
-  final String name;
+  final String courtsideName;
   final VoidCallback onBack;
 
   @override
@@ -1965,7 +1791,7 @@ class _VideoCallHeader extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  name,
+                  courtsideName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: _clubTextStyle(
