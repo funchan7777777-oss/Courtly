@@ -2217,16 +2217,15 @@ class _MutualFriendRow extends StatelessWidget {
 }
 
 class _AgePill extends StatelessWidget {
-  const _AgePill({required this.ageBandLabel, this.compact = false});
+  const _AgePill({required this.ageBandLabel});
 
   final String ageBandLabel;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: compact ? 18 : 20,
-      padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 7),
+      height: 20,
+      padding: const EdgeInsets.symmetric(horizontal: 7),
       decoration: BoxDecoration(
         color: _chatPinkSoft,
         borderRadius: BorderRadius.circular(10),
@@ -2234,64 +2233,7 @@ class _AgePill extends StatelessWidget {
       child: Center(
         child: Text(
           ageBandLabel,
-          style: _clubTextStyle(
-            fontSize: compact ? 9 : 10,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FollowButton extends StatelessWidget {
-  const _FollowButton({
-    required this.followed,
-    required this.onPressed,
-    this.compact = false,
-    this.wide = false,
-  });
-
-  final bool followed;
-  final VoidCallback onPressed;
-  final bool compact;
-  final bool wide;
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoButton(
-      minimumSize: Size.zero,
-      padding: EdgeInsets.zero,
-      onPressed: onPressed,
-      child: Container(
-        width: wide ? 190 : (compact ? 82 : 76),
-        height: compact ? 28 : 30,
-        decoration: BoxDecoration(
-          color: followed ? _chatWhite.withValues(alpha: 0.22) : _chatPink,
-          borderRadius: BorderRadius.circular(15),
-          border: followed
-              ? Border.all(color: _chatWhite.withValues(alpha: 0.24))
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              followed ? CupertinoIcons.check_mark : CupertinoIcons.star_fill,
-              color: _chatWhite,
-              size: compact ? 12 : 13,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              followed ? 'Followed' : 'Follow',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: _clubTextStyle(
-                fontSize: compact ? 11 : 12,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
+          style: _clubTextStyle(fontSize: 10, fontWeight: FontWeight.w900),
         ),
       ),
     );

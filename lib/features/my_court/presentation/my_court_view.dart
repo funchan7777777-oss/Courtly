@@ -2786,12 +2786,10 @@ class _MyCourtBackdrop extends StatelessWidget {
   const _MyCourtBackdrop({
     required this.child,
     this.useProfileBackdrop = false,
-    this.useWalletBackdrop = false,
   });
 
   final Widget child;
   final bool useProfileBackdrop;
-  final bool useWalletBackdrop;
 
   @override
   Widget build(BuildContext context) {
@@ -2799,18 +2797,14 @@ class _MyCourtBackdrop extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         Image.asset(
-          useWalletBackdrop
-              ? 'assets/images/courtly_tournament.png'
-              : 'assets/images/courtly_swing.png',
+          'assets/images/courtly_swing.png',
           fit: BoxFit.cover,
           alignment: Alignment.center,
         ),
         if (!useProfileBackdrop)
           DecoratedBox(
             decoration: BoxDecoration(
-              color: _courtPurple.withValues(
-                alpha: useWalletBackdrop ? 0.08 : 0.12,
-              ),
+              color: _courtPurple.withValues(alpha: 0.12),
             ),
           ),
         if (useProfileBackdrop)
